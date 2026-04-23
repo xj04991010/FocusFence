@@ -146,6 +146,7 @@ public partial class App : Application
                 _pomoTimerWin.Show();
             }
             
+            _dashboard.ResetPauseState();
             _pomoTimerWin.SetVolume(volume);
             _dashboard.RefreshData();
         };
@@ -153,6 +154,14 @@ public partial class App : Application
         _dashboard.RequestVolumeChange += (volume) =>
         {
             _pomoTimerWin?.SetVolume(volume);
+        };
+        _dashboard.RequestPause += () => _pomodoroService?.Pause();
+        _dashboard.RequestResume += () => _pomodoroService?.Resume();
+        _dashboard.RequestStop += () =>
+        {
+            _pomodoroService?.Stop();
+            ClosePomodoroTimer();
+            _dashboard.RefreshData();
         };
         _dashboard.RequestSummonZone += (config) =>
         {
@@ -698,6 +707,26 @@ public partial class App : Application
         };
         startupItem.Click += (_, _) => StartupService.SetEnabled(startupItem.IsChecked);
 
+        var publishItem = new System.Windows.Controls.MenuItem { Header = "🛠️ 打包並固定到工具列 (Build & Pin)" };
+        publishItem.Click += async (_, _) => 
+        {
+            MessageBox.Show("正在進行正式打包發佈...\n這將產出一個「單一檔案、免安裝」的高效能版本。\n\n完成後會自動開啟資料夾，請將 FocusFence.exe 拖曳至您的工具列固定即可。", "FocusFence Build", MessageBoxButton.OK, MessageBoxImage.Information);
+            try {
+                string publishCmd = "dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:IncludeNativeLibrariesForSelfContained=true";
+                await Task.Run(() => {
+                    var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                        FileName = "cmd.exe",
+                        Arguments = $"/c {publishCmd} & explorer bin\\Release\\net9.0-windows\\win-x64\\publish",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                    process?.WaitForExit();
+                });
+            } catch (Exception ex) {
+                MessageBox.Show($"打包失敗：{ex.Message}");
+            }
+        };
+
         var exitItem = new System.Windows.Controls.MenuItem { Header = "結束 (Exit)", Foreground = System.Windows.Media.Brushes.IndianRed };
         exitItem.Click += (_, _) => ExitApp();
 
@@ -709,6 +738,7 @@ public partial class App : Application
         _wpfTrayMenu.Items.Add(new System.Windows.Controls.Separator());
         _wpfTrayMenu.Items.Add(saveItem);
         _wpfTrayMenu.Items.Add(startupItem);
+        _wpfTrayMenu.Items.Add(publishItem);
         _wpfTrayMenu.Items.Add(new System.Windows.Controls.Separator());
         _wpfTrayMenu.Items.Add(exitItem);
 

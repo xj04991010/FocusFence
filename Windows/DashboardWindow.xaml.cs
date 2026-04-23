@@ -25,6 +25,9 @@ public partial class DashboardWindow : Window
     public event Action? RequestAutoArrange;
     public event Action<string, string, int, double>? RequestStartPomodoro; // zoneId, label, duration, volume
     public event Action<double>? RequestVolumeChange;
+    public event Action? RequestPause;
+    public event Action? RequestResume;
+    public event Action? RequestStop;
 
     public DashboardWindow(AppConfig config)
     {
@@ -489,78 +492,48 @@ public partial class DashboardWindow : Window
         PomoLabelInput.Text = "";
     }
 
-    private async void PinToTaskbar_Click(object sender, RoutedEventArgs e)
-    {
-        MessageBox.Show("正在為您進行正式打包（Publish）...\n這將產出一個「單一檔案、免安裝」的專業版 EXE。\n\n完成後會自動為您開啟資料夾，屆時請將 FocusFence.exe 拖曳至您的工具列即可！", "FocusFence 打包中", MessageBoxButton.OK, MessageBoxImage.Information);
-
-        try
-        {
-            // Use Process.Start to trigger the build and open folder
-            string publishCmd = "dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:IncludeNativeLibrariesForSelfContained=true";
-            
-            await Task.Run(() => {
-                var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
-                    FileName = "cmd.exe",
-                    Arguments = $"/c {publishCmd} & explorer bin\\Release\\net9.0-windows\\win-x64\\publish",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                });
-                process?.WaitForExit();
-            });
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"打包過程中出現小插曲：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-
-
     private void TitleBar_Drag(object sender, MouseButtonEventArgs e)
     {
         if (e.LeftButton == MouseButtonState.Pressed) DragMove();
     }
 
     // ── Pause/Resume Button ───────────────────────────────────────
+    private bool _isDashPaused = false;
+
     private void DashPauseBtn_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: Implement real pause/resume logic via PomodoroService.
-        // Placeholder: toggle button icon and show message.
-        if (DashPauseIcon != null)
+        _isDashPaused = !_isDashPaused;
+        if (_isDashPaused)
         {
-            if (DashPauseIcon.Text == "⏸")
-            {
-                // Currently paused, resume
-                DashPauseIcon.Text = "▶"; // change to play icon (optional)
-                // Insert resume logic here
-                MessageBox.Show("Pomodoro resumed.");
-            }
-            else
-            {
-                // Currently running, pause
-                DashPauseIcon.Text = "⏸"; // keep pause icon
-                // Insert pause logic here
-                MessageBox.Show("Pomodoro paused.");
-            }
+            RequestPause?.Invoke();
+            if (DashPauseIcon != null) DashPauseIcon.Text = "▶";
         }
+        else
+        {
+            RequestResume?.Invoke();
+            if (DashPauseIcon != null) DashPauseIcon.Text = "⏸";
+        }
+    }
+
+    /// <summary>Called by App when a new Pomodoro starts, to reset the pause toggle state.</summary>
+    public void ResetPauseState()
+    {
+        _isDashPaused = false;
+        if (DashPauseIcon != null) DashPauseIcon.Text = "⏸";
     }
 
     // ── Stop Button ───────────────────────────────────────────────
     private void DashStopBtn_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: Implement stop logic via PomodoroService.
-        // Placeholder: stop the current Pomodoro session and reset UI.
-        MessageBox.Show("Pomodoro stopped.");
-        // Reset UI elements (e.g., timer text, progress bar) if needed.
+        RequestStop?.Invoke();
+        ResetPauseState();
     }
 
     // ── Clear History Button ───────────────────────────────────────
     private void ClearHistoryBtn_Click(object sender, RoutedEventArgs e)
     {
-        // Clear pomodoro history and refresh UI.
         _config.PomodoroHistory.Clear();
         RefreshPomodoroData();
-        MessageBox.Show("Pomodoro history cleared.");
     }
 
     // ── Global Notes ──────────────────────────────────────────────────

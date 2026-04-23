@@ -1031,7 +1031,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
         }
 
         bool clickedOnItem = false;
-        object clickedItemData = null;
+        object? clickedItemData = null;
         var current = e.OriginalSource as DependencyObject;
         while (current != null && current != FileListBox)
         {

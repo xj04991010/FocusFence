@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 
 namespace FocusFence.Windows;
 
@@ -138,9 +139,6 @@ public partial class PomodoroTimerWindow : Window
     {
         _isPinned = !_isPinned;
         Topmost = _isPinned;
-        PinIcon.Foreground = _isPinned 
-            ? new SolidColorBrush(Colors.White) 
-            : new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
         e.Handled = true;
     }
 
@@ -173,9 +171,6 @@ public partial class PomodoroTimerWindow : Window
             case Key.P:
                 _isPinned = !_isPinned;
                 Topmost = _isPinned;
-                PinIcon.Foreground = _isPinned
-                    ? new SolidColorBrush(Colors.White)
-                    : new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
                 e.Handled = true;
                 break;
             case Key.M:

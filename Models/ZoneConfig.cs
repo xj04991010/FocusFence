@@ -96,4 +96,18 @@ public class PomodoroLogEntry
     public DateTime? CompletedAt { get; set; }
     public bool IsCompleted { get; set; }
     public string DurationStr => $"{DurationMinutes} 分鐘";
+
+    /// <summary>Friendly display string, e.g. "今天 14:30" or "昨天 09:00".</summary>
+    public string CompletedAtStr
+    {
+        get
+        {
+            if (!CompletedAt.HasValue) return "";
+            var dt = CompletedAt.Value;
+            var today = DateTime.Now.Date;
+            if (dt.Date == today)          return $"今天 {dt:HH:mm}";
+            if (dt.Date == today.AddDays(-1)) return $"昨天 {dt:HH:mm}";
+            return dt.ToString("MM/dd HH:mm");
+        }
+    }
 }
