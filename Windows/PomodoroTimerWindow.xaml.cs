@@ -10,6 +10,9 @@ public partial class PomodoroTimerWindow : Window
     private bool _isPaused = false;
     private System.Media.SoundPlayer? _audioPlayer;
     private System.IO.MemoryStream? _audioStream;
+    private double _currentVolume = 0.5;
+    private bool _isBrownActive = false;
+    private bool _isNoisePlaying = false;
 
     public event Action? RequestStop;
     public event Action? RequestPause;
@@ -26,6 +29,16 @@ public partial class PomodoroTimerWindow : Window
         Top = 20;
     }
 
+    public void SetVolume(double vol)
+    {
+        _currentVolume = Math.Clamp(vol, 0, 1);
+        // If noise is playing, we need to re-generate to apply volume
+        if (_isNoisePlaying)
+        {
+            GenerateAndPlayNoise(_isBrownActive);
+        }
+    }
+
     public void UpdateDisplay(string label, int remainingSeconds, int totalSeconds)
     {
         TaskLabelText.Text = label;
@@ -33,8 +46,59 @@ public partial class PomodoroTimerWindow : Window
         int s = remainingSeconds % 60;
         TimerText.Text = $"{m:D2}:{s:D2}";
         
-        double progress = totalSeconds > 0 ? (totalSeconds - remainingSeconds) * 100.0 / totalSeconds : 0;
-        ProgressArc.Value = progress;
+        double progressRatio = totalSeconds > 0 ? (double)remainingSeconds / totalSeconds : 0;
+        double progressPercent = 100 - (progressRatio * 100);
+        ProgressArc.Value = progressPercent;
+
+        // --- Premium Dynamic Color ---
+        var color = GetInterpolatedColor(progressRatio);
+        var brush = new SolidColorBrush(color);
+        TimerText.Foreground = brush;
+        ProgressArc.Foreground = brush;
+
+        // --- Pulse Animation for last 60s ---
+        if (remainingSeconds <= 60 && remainingSeconds > 0)
+        {
+            if (TimerText.RenderTransform is not ScaleTransform)
+                TimerText.RenderTransform = new ScaleTransform(1, 1);
+            
+            // Subtle pulse
+            double scale = 1.0 + (Math.Sin(DateTime.Now.Millisecond * 0.01) * 0.02);
+            ((ScaleTransform)TimerText.RenderTransform).ScaleX = scale;
+            ((ScaleTransform)TimerText.RenderTransform).ScaleY = scale;
+        }
+    }
+
+    private Color GetInterpolatedColor(double ratio)
+    {
+        // Define key colors for the gradient
+        // 1.0 (Start) = Teal (#5EEAD4)
+        // 0.4 (Mid)   = Yellow (#FDE047)
+        // 0.0 (End)   = OrangeRed (#F87171)
+
+        if (ratio > 0.4)
+        {
+            // Teal to Yellow
+            double t = (ratio - 0.4) / 0.6; // 0 to 1
+            return Color.FromRgb(
+                (byte)Lerp(253, 94, t),
+                (byte)Lerp(224, 234, t),
+                (byte)Lerp(71, 212, t));
+        }
+        else
+        {
+            // Yellow to OrangeRed
+            double t = ratio / 0.4; // 0 to 1
+            return Color.FromRgb(
+                (byte)Lerp(248, 253, t),
+                (byte)Lerp(113, 224, t),
+                (byte)Lerp(113, 71, t));
+        }
+    }
+
+    private double Lerp(double start, double end, double t)
+    {
+        return start + (end - start) * t;
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -93,6 +157,17 @@ public partial class PomodoroTimerWindow : Window
         }
     }
 
+    private void VolumeBtn_Click(object sender, MouseButtonEventArgs e)
+    {
+        VolumePopup.IsOpen = !VolumePopup.IsOpen;
+        e.Handled = true;
+    }
+
+    private void LocalVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        SetVolume(e.NewValue / 100.0);
+    }
+
     private void PauseBtn_Click(object sender, MouseButtonEventArgs e)
     {
         _isPaused = !_isPaused;
@@ -119,8 +194,10 @@ public partial class PomodoroTimerWindow : Window
         int seconds = 8; // 8 seconds allows for a sweeping wave cycle
         short[] samples = new short[sampleRate * seconds];
         var r = new Random();
+        _isNoisePlaying = true;
+        _isBrownActive = isBrown;
         double lastOut = 0;
-        
+
         for(int i=0; i<samples.Length; i++) {
             double white = (r.NextDouble() * 2.0 - 1.0);
             
@@ -128,22 +205,19 @@ public partial class PomodoroTimerWindow : Window
                 // Deep brown noise/waterfall
                 lastOut = (lastOut * 0.98) + (white * 0.05);
                 
-                // Add a slow LFO (Low Frequency Oscillator) to the volume to sound like breathing/ocean waves
-                // 8 second cycle to match our buffer length perfectly for a seamless loop
                 double lfo = Math.Sin(i * 2.0 * Math.PI / (sampleRate * seconds)); 
-                lfo = (lfo + 1.0) * 0.5; // Scale to 0.0 ~ 1.0
-                lfo = 0.5 + (lfo * 0.5); // Scale to 0.5 ~ 1.0 variation
+                lfo = (lfo + 1.0) * 0.5;
+                lfo = 0.5 + (lfo * 0.5);
                 
-                double val = lastOut * lfo * 3.5; 
-                
-                samples[i] = (short)(Math.Clamp(val, -1.0, 1.0) * 5500); // Gentle deep hum
+                double val = lastOut * lfo * 3.5 * _currentVolume; 
+                samples[i] = (short)(Math.Clamp(val, -1.0, 1.0) * 8000); 
             }
             else {
                 // Pink-ish noise (gentle rain/static)
                 lastOut = (lastOut * 0.88) + (white * 0.12);
                 
-                double val = lastOut * 1.2;
-                samples[i] = (short)(Math.Clamp(val, -1.0, 1.0) * 1800); 
+                double val = lastOut * 1.2 * _currentVolume;
+                samples[i] = (short)(Math.Clamp(val, -1.0, 1.0) * 4000); 
             }
         }
         
@@ -174,6 +248,7 @@ public partial class PomodoroTimerWindow : Window
 
     private void StopNoise()
     {
+        _isNoisePlaying = false;
         _audioPlayer?.Stop();
         _audioPlayer?.Dispose();
         _audioStream?.Dispose();

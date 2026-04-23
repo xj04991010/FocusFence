@@ -133,7 +133,7 @@ public partial class App : Application
         _dashboard.RequestCreateZone += OnCreateZoneRequest;
         _dashboard.RequestDeleteZone += OnDeleteZoneRequest;
         _dashboard.RequestToggleZone += OnToggleZoneRequest;
-        _dashboard.RequestStartPomodoro += (zoneId, label, duration) =>
+        _dashboard.RequestStartPomodoro += (zoneId, label, duration, volume) =>
         {
             _pomodoroService!.Start(zoneId, duration, label);
             
@@ -146,7 +146,13 @@ public partial class App : Application
                 _pomoTimerWin.Show();
             }
             
+            _pomoTimerWin.SetVolume(volume);
             _dashboard.RefreshData();
+        };
+
+        _dashboard.RequestVolumeChange += (volume) =>
+        {
+            _pomoTimerWin?.SetVolume(volume);
         };
         _dashboard.RequestSummonZone += (config) =>
         {

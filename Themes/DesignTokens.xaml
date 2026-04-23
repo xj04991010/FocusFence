@@ -26,12 +26,11 @@
     <Color x:Key="TextSecondary">#B3FFFFFF</Color>              <!-- rgba(255,255,255,0.70) -->
     <Color x:Key="TextTertiary">#66FFFFFF</Color>               <!-- rgba(255,255,255,0.40) -->
 
-    <!-- Accent — ONLY for: Pomodoro, Progress, Active Zone -->
-    <Color x:Key="AccentTeal">#FF4EAEB5</Color>                 <!-- dark mode teal -->
-    <Color x:Key="AccentTealGlow">#4D4EAEB5</Color>             <!-- rgba(78,174,181,0.3) -->
-    <Color x:Key="AccentTealSolid">#FF01696F</Color>            <!-- light mode / solid -->
-    <Color x:Key="AccentTealBorder1">#CC4EAEB5</Color>          <!-- active border highlight -->
-    <Color x:Key="AccentTealBorder2">#6601696F</Color>          <!-- active border shadow -->
+    <!-- Accent — Premium Teal with Glow -->
+    <Color x:Key="AccentTeal">#FF5EEAD4</Color>                 <!-- Brighter, modern teal -->
+    <Color x:Key="AccentTealGlow">#665EEAD4</Color>             <!-- rgba(94, 234, 212, 0.4) -->
+    <Color x:Key="AccentTealDeep">#FF0D9488</Color>
+    <Color x:Key="AccentTealBorder">#995EEAD4</Color>
 
     <!-- Destructive -->
     <Color x:Key="Destructive">#E6DC3545</Color>                <!-- rgba(220,53,69,0.9) -->
@@ -63,18 +62,24 @@
     <SolidColorBrush x:Key="TransparentBrush"     Color="{StaticResource Transparent}"/>
     <SolidColorBrush x:Key="WarningOrangeBrush"   Color="{StaticResource WarningOrange}"/>
 
-    <!-- ── Border Brush (Apple highlight gradient) ───────────── -->
-    <LinearGradientBrush x:Key="ZoneBorderBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="{StaticResource BorderHighlight}" Offset="0.0"/>
-        <GradientStop Color="{StaticResource BorderMid}"       Offset="0.4"/>
-        <GradientStop Color="{StaticResource BorderShadow}"    Offset="1.0"/>
+    <!-- ── Premium Glass Borders (Light Stroke) ───────────── -->
+    <LinearGradientBrush x:Key="ZoneBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#4DFFFFFF" Offset="0"/>           <!-- Top highlight -->
+        <GradientStop Color="#1AFFFFFF" Offset="0.5"/>         <!-- Mid transparency -->
+        <GradientStop Color="#26000000" Offset="1"/>           <!-- Bottom shadow -->
     </LinearGradientBrush>
 
     <!-- Active Zone Border (Teal glow) -->
     <LinearGradientBrush x:Key="ZoneBorderActiveBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="{StaticResource AccentTealBorder1}" Offset="0.0"/>
-        <GradientStop Color="{StaticResource AccentTealBorder2}" Offset="1.0"/>
+        <GradientStop Color="{StaticResource AccentTealBorder}" Offset="0.0"/>
+        <GradientStop Color="{StaticResource AccentTealDeep}" Offset="1.0"/>
     </LinearGradientBrush>
+
+    <!-- Multi-layer Shadow System -->
+    <DropShadowEffect x:Key="ShadowDeep" BlurRadius="30" ShadowDepth="8" Opacity="0.4" Color="Black"/>
+    <DropShadowEffect x:Key="ShadowMedium" BlurRadius="15" ShadowDepth="4" Opacity="0.3" Color="Black"/>
+    <DropShadowEffect x:Key="ShadowSoft" BlurRadius="8" ShadowDepth="2" Opacity="0.2" Color="Black"/>
+    <DropShadowEffect x:Key="AccentGlow" BlurRadius="12" ShadowDepth="0" Opacity="0.6" Color="{StaticResource AccentTeal}"/>
 
     <!-- ── 5A. Typography ──────────────────────────────────────── -->
 
@@ -120,7 +125,7 @@
     <!-- ── 7B. Title Bar Button Hover Style ────────────────────── -->
     <Style x:Key="TitleBarBtnStyle" TargetType="Border">
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="Padding" Value="8,5"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusCardInner}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Style.Triggers>
@@ -128,7 +133,11 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource SurfaceHover}" Duration="0:0:0.2"/>
+                                        To="{StaticResource SurfaceHover}" Duration="0:0:0.3">
+                            <ColorAnimation.EasingFunction>
+                                <CubicEase EasingMode="EaseOut"/>
+                            </ColorAnimation.EasingFunction>
+                        </ColorAnimation>
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -136,7 +145,11 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource Transparent}" Duration="0:0:0.2"/>
+                                        To="{StaticResource Transparent}" Duration="0:0:0.3">
+                            <ColorAnimation.EasingFunction>
+                                <CubicEase EasingMode="EaseOut"/>
+                            </ColorAnimation.EasingFunction>
+                        </ColorAnimation>
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -158,16 +171,32 @@
 
     <!-- ── Task Card Container Style ───────────────────────────── -->
     <Style x:Key="TaskCardContainerStyle" TargetType="Border">
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Padding" Value="10,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusCardInner}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Margin" Value="{StaticResource TaskCardSpacing}"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1" ScaleY="1"/>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
             <EventTrigger RoutedEvent="MouseEnter">
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource Surface1}" Duration="0:0:0.2"/>
+                                        To="{StaticResource Surface1}" Duration="0:0:0.3">
+                            <ColorAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></ColorAnimation.EasingFunction>
+                        </ColorAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                         To="1.02" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                         To="1.02" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -175,7 +204,17 @@
                 <BeginStoryboard>
                     <Storyboard>
                         <ColorAnimation Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                        To="{StaticResource Transparent}" Duration="0:0:0.2"/>
+                                        To="{StaticResource Transparent}" Duration="0:0:0.3">
+                            <ColorAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></ColorAnimation.EasingFunction>
+                        </ColorAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                         To="1.0" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                         To="1.0" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
                     </Storyboard>
                 </BeginStoryboard>
             </EventTrigger>
@@ -221,19 +260,56 @@
 
     <Style x:Key="ZoneListBoxItemStyle" TargetType="ListBoxItem">
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Margin" Value="4,2"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource ZoneFocusVisualStyle}"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1" ScaleY="1"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
                     <Border x:Name="Bd" Background="Transparent"
-                            CornerRadius="{StaticResource RadiusCard}">
+                            CornerRadius="{StaticResource RadiusCard}"
+                            Padding="2">
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Bd" Property="Background"
                                     Value="{StaticResource SurfaceHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                         To="1.01" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                         To="1.01" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                         To="1.0" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                         To="1.0" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -359,6 +435,54 @@
                 <Setter Property="Height" Value="8"/>
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- ── High-End Designer Button Style ──────────────────────── -->
+    <Style x:Key="DesignerButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource AccentTealBrush}"/>
+        <Setter Property="Foreground" Value="Black"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="15,8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" 
+                            CornerRadius="10" RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1"/>
+                        </Border.RenderTransform>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.03" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.03" Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
+                            <Setter TargetName="Bd" Property="RenderTransform">
+                                <Setter.Value><ScaleTransform ScaleX="0.98" ScaleY="0.98"/></Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>

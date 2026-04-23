@@ -82,6 +82,39 @@
                                        FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
+                    <Border x:Name="VolumeBtn" Cursor="Hand" MouseLeftButtonDown="VolumeBtn_Click"
+                            Background="Transparent" ToolTip="調整音量" Padding="4,4"
+                            CornerRadius="4" MinWidth="28" MinHeight="28">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="&#xE767;" FontFamily="{StaticResource IconFont}" FontSize="12" 
+                                   Foreground="{StaticResource TextPrimaryBrush}" Opacity="0.8"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <Popup x:Name="VolumePopup" PlacementTarget="{Binding ElementName=VolumeBtn}" 
+                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                        <Border Background="#222222" CornerRadius="8" BorderBrush="#33FFFFFF" 
+                                BorderThickness="1" Padding="12,8" Width="150">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="🔊" FontSize="10" VerticalAlignment="Center" Margin="0,0,8,0" Opacity="0.6"/>
+                                <Slider x:Name="LocalVolumeSlider" Grid.Column="1" Minimum="0" Maximum="100" Value="50"
+                                        ValueChanged="LocalVolumeSlider_ValueChanged" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Popup>
+
                     <!-- Pause/Resume -->
                     <Border x:Name="PauseBtn" Cursor="Hand" MouseLeftButtonDown="PauseBtn_Click"
                             Background="Transparent" ToolTip="暫停 / 恢復 (Space)" Padding="4,4"

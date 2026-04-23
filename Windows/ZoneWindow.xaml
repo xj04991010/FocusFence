@@ -31,32 +31,33 @@
              ═══════════════════════════════════════════════════════════ -->
 
         <!-- Shadow Layer 3: Far shadow — large radius, very faint -->
-        <Border x:Name="ShadowLayer3" Margin="-2"
+        <!-- Shadow Layer 3: Far shadow — large radius, very faint -->
+        <Border x:Name="ShadowLayer3" Margin="5"
                 CornerRadius="18"
                 Opacity="{DynamicResource ShadowLayer3Opacity}"
                 Background="Black" IsHitTestVisible="False">
             <Border.Effect>
-                <BlurEffect Radius="24"/>
+                <BlurEffect Radius="20"/>
             </Border.Effect>
         </Border>
 
         <!-- Shadow Layer 2: Mid shadow — floaty feel -->
-        <Border x:Name="ShadowLayer2" Margin="0"
+        <Border x:Name="ShadowLayer2" Margin="7"
                 CornerRadius="15"
                 Opacity="{DynamicResource ShadowLayer2Opacity}"
                 Background="Black" IsHitTestVisible="False">
             <Border.Effect>
-                <BlurEffect Radius="12"/>
+                <BlurEffect Radius="10"/>
             </Border.Effect>
         </Border>
 
         <!-- Shadow Layer 1: Contact shadow — subtle Y offset -->
-        <Border x:Name="ShadowLayer1" Margin="2,4,2,0"
+        <Border x:Name="ShadowLayer1" Margin="8,10,8,6"
                 CornerRadius="13"
                 Opacity="{DynamicResource ShadowLayer1Opacity}"
                 Background="Black" IsHitTestVisible="False">
             <Border.Effect>
-                <BlurEffect Radius="6"/>
+                <BlurEffect Radius="4"/>
             </Border.Effect>
         </Border>
 
@@ -67,8 +68,9 @@
              ═══════════════════════════════════════════════════════════ -->
         <Border x:Name="MainBorder"
                 CornerRadius="{DynamicResource RadiusZone}"
-                BorderThickness="1" Margin="6"
+                BorderThickness="1" Margin="10"
                 BorderBrush="{DynamicResource ZoneBorderBrush}"
+                Background="#DD1A1A1A"
                 ClipToBounds="True"
                 RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform>
@@ -84,7 +86,7 @@
                         CornerRadius="11"
                         IsHitTestVisible="False">
                     <Border.Background>
-                        <SolidColorBrush Color="White" Opacity="0.10"/>
+                        <SolidColorBrush Color="White" Opacity="0.04"/>
                     </Border.Background>
                 </Border>
 
@@ -92,7 +94,7 @@
                 <Border x:Name="NoiseOverlay"
                         CornerRadius="11"
                         IsHitTestVisible="False"
-                        Opacity="0.025"/>
+                        Opacity="0.06"/>
 
                 <!-- ═══ Active Context Glow (PART 7A) ═══ -->
                 <Border x:Name="ContextGlowBorder"

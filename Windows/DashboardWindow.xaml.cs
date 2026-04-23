@@ -15,6 +15,7 @@ public partial class DashboardWindow : Window
 {
     private readonly AppConfig _config;
     private readonly ObservableCollection<DashboardZoneItem> _zoneItems = [];
+    private int _selectedPomoDuration = 25; // Default to 25
 
     public event Action? ConfigurationChanged;
     public event Action<ZoneConfig>? RequestCreateZone;
@@ -22,7 +23,8 @@ public partial class DashboardWindow : Window
     public event Action<ZoneConfig, bool>? RequestToggleZone;
     public event Action<ZoneConfig>? RequestSummonZone;
     public event Action? RequestAutoArrange;
-    public event Action<string, string, int>? RequestStartPomodoro;
+    public event Action<string, string, int, double>? RequestStartPomodoro; // zoneId, label, duration, volume
+    public event Action<double>? RequestVolumeChange;
 
     public DashboardWindow(AppConfig config)
     {
@@ -85,6 +87,18 @@ public partial class DashboardWindow : Window
         {
             DashboardTitleText.Text = $"📊 FocusFence 控制台 (v{version})";
         }
+
+        // --- Premium Entrance Animation ---
+        MainContentGrid.Opacity = 0;
+        var fade = new System.Windows.Media.Animation.DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(500) };
+        var slide = new System.Windows.Media.Animation.DoubleAnimation { From = 20, To = 0, Duration = TimeSpan.FromMilliseconds(600), EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut } };
+        
+        MainContentGrid.BeginAnimation(OpacityProperty, fade);
+        var tt = new TranslateTransform();
+        MainContentGrid.RenderTransform = tt;
+        tt.BeginAnimation(TranslateTransform.YProperty, slide);
+        // ----------------------------------
+
         RefreshData();
     }
 
@@ -431,16 +445,46 @@ public partial class DashboardWindow : Window
         PomoLabelInput.Focus();
     }
 
+    private void PomoChip_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Border chip && int.TryParse(chip.Tag?.ToString(), out int duration))
+        {
+            _selectedPomoDuration = duration;
+            
+            var teal = (SolidColorBrush)FindResource("AccentTealBrush");
+            var surface2 = (SolidColorBrush)FindResource("Surface2Brush");
+            var chips = new[] { Chip15, Chip25, Chip50, Chip90 };
+
+            foreach (var c in chips)
+            {
+                if (c == null) continue;
+                // Reset to default
+                c.Background = surface2;
+                c.BorderThickness = new Thickness(0);
+                if (c.Child is TextBlock tb) tb.Foreground = Brushes.White;
+            }
+
+            // Highlight selected: Teal background with Black text for premium contrast
+            chip.Background = teal;
+            chip.BorderThickness = new Thickness(0);
+            if (chip.Child is TextBlock selectedTb) selectedTb.Foreground = Brushes.Black;
+        }
+        e.Handled = true;
+    }
+
+    private void PomoVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        RequestVolumeChange?.Invoke(e.NewValue / 100.0);
+    }
+
     private void StartPomodoro_Click(object sender, RoutedEventArgs e)
     {
         string label = PomoLabelInput.Text.Trim();
         if (string.IsNullOrEmpty(label)) label = "專注時間";
         
-        int duration = (int)PomoDurationSlider.Value;
-        
-        RequestStartPomodoro?.Invoke("", label, duration);
-        
-        PomoLabelInput.Text = ""; // clear for next time
+        double volume = PomoVolumeSlider.Value / 100.0;
+        RequestStartPomodoro?.Invoke("", label, _selectedPomoDuration, volume);
+        PomoLabelInput.Text = "";
     }
 
 
