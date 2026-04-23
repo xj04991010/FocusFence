@@ -1,0 +1,314 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         FocusFence Design System v1.0
+         Based on macOS Sequoia material language
+         
+         RULE: All XAML must reference these keys.
+               Hardcoded HEX values are FORBIDDEN.
+         ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- ── 1A. Color Tokens (Dark Mode — default for desktop tool) ── -->
+
+    <!-- Background & Material -->
+    <Color x:Key="BgBlurTint">#BF1E1E1E</Color>                <!-- rgba(30,30,30,0.75) -->
+    <Color x:Key="BgNoiseTint">#06808080</Color>                <!-- noise overlay base -->
+    <Color x:Key="Transparent">#00000000</Color>
+
+    <!-- Border (Apple-style highlight/shadow gradient) - Higher contrast edges -->
+    <Color x:Key="BorderHighlight">#4DFFFFFF</Color>            <!-- rgba(255,255,255,0.30) -->
+    <Color x:Key="BorderMid">#1AFFFFFF</Color>                  <!-- mid transition -->
+    <Color x:Key="BorderShadow">#80000000</Color>               <!-- rgba(0,0,0,0.50) -->
+
+    <!-- Text (Whiter for higher contrast) -->
+    <Color x:Key="TextPrimary">#FFFFFFFF</Color>                <!-- rgba(255,255,255,1.0) -->
+    <Color x:Key="TextSecondary">#B3FFFFFF</Color>              <!-- rgba(255,255,255,0.70) -->
+    <Color x:Key="TextTertiary">#66FFFFFF</Color>               <!-- rgba(255,255,255,0.40) -->
+
+    <!-- Accent — ONLY for: Pomodoro, Progress, Active Zone -->
+    <Color x:Key="AccentTeal">#FF4EAEB5</Color>                 <!-- dark mode teal -->
+    <Color x:Key="AccentTealGlow">#4D4EAEB5</Color>             <!-- rgba(78,174,181,0.3) -->
+    <Color x:Key="AccentTealSolid">#FF01696F</Color>            <!-- light mode / solid -->
+    <Color x:Key="AccentTealBorder1">#CC4EAEB5</Color>          <!-- active border highlight -->
+    <Color x:Key="AccentTealBorder2">#6601696F</Color>          <!-- active border shadow -->
+
+    <!-- Destructive -->
+    <Color x:Key="Destructive">#E6DC3545</Color>                <!-- rgba(220,53,69,0.9) -->
+    <Color x:Key="DestructiveBg">#0FDC3545</Color>              <!-- rgba(220,53,69,0.06) -->
+
+    <!-- Warning (Pomodoro last 2 min) -->
+    <Color x:Key="WarningOrange">#FFF97316</Color>
+    <Color x:Key="WarningRed">#FFEF4444</Color>
+
+    <!-- Surface (More opaque for background separation) -->
+    <Color x:Key="Surface1">#26FFFFFF</Color>                   <!-- rgba(255,255,255,0.15) -->
+    <Color x:Key="Surface2">#14FFFFFF</Color>                   <!-- rgba(255,255,255,0.08) -->
+    <Color x:Key="SurfaceHover">#33FFFFFF</Color>               <!-- hover state -->
+
+    <!-- Divider -->
+    <Color x:Key="Divider">#14FFFFFF</Color>                    <!-- rgba(255,255,255,0.08) -->
+
+    <!-- ── Brushes ─────────────────────────────────────────────── -->
+    <SolidColorBrush x:Key="TextPrimaryBrush"     Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush"   Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="TextTertiaryBrush"    Color="{StaticResource TextTertiary}"/>
+    <SolidColorBrush x:Key="AccentTealBrush"      Color="{StaticResource AccentTeal}"/>
+    <SolidColorBrush x:Key="AccentTealSolidBrush" Color="{StaticResource AccentTealSolid}"/>
+    <SolidColorBrush x:Key="DestructiveBrush"     Color="{StaticResource Destructive}"/>
+    <SolidColorBrush x:Key="Surface1Brush"        Color="{StaticResource Surface1}"/>
+    <SolidColorBrush x:Key="Surface2Brush"        Color="{StaticResource Surface2}"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush"    Color="{StaticResource SurfaceHover}"/>
+    <SolidColorBrush x:Key="DividerBrush"         Color="{StaticResource Divider}"/>
+    <SolidColorBrush x:Key="TransparentBrush"     Color="{StaticResource Transparent}"/>
+    <SolidColorBrush x:Key="WarningOrangeBrush"   Color="{StaticResource WarningOrange}"/>
+
+    <!-- ── Border Brush (Apple highlight gradient) ───────────── -->
+    <LinearGradientBrush x:Key="ZoneBorderBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BorderHighlight}" Offset="0.0"/>
+        <GradientStop Color="{StaticResource BorderMid}"       Offset="0.4"/>
+        <GradientStop Color="{StaticResource BorderShadow}"    Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <!-- Active Zone Border (Teal glow) -->
+    <LinearGradientBrush x:Key="ZoneBorderActiveBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource AccentTealBorder1}" Offset="0.0"/>
+        <GradientStop Color="{StaticResource AccentTealBorder2}" Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <!-- ── 5A. Typography ──────────────────────────────────────── -->
+
+    <!-- Primary font: Segoe UI Variable Display with JhengHei fallback -->
+    <FontFamily x:Key="PrimaryFont">Segoe UI Variable Display, Microsoft JhengHei UI, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Code, Consolas</FontFamily>
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <!-- 5B. Typography Scale (all sizes verified ≥ 11px per PART 0) -->
+    <system:Double x:Key="FontSizeZoneTitle"    xmlns:system="clr-namespace:System;assembly=mscorlib">12</system:Double>
+    <system:Double x:Key="FontSizeTaskCard"     xmlns:system="clr-namespace:System;assembly=mscorlib">12</system:Double>
+    <system:Double x:Key="FontSizePomodoro"     xmlns:system="clr-namespace:System;assembly=mscorlib">22</system:Double>
+    <system:Double x:Key="FontSizeTooltip"      xmlns:system="clr-namespace:System;assembly=mscorlib">11</system:Double>
+    <system:Double x:Key="FontSizeBadge"        xmlns:system="clr-namespace:System;assembly=mscorlib">11</system:Double>
+    <system:Double x:Key="FontSizeDormancy"     xmlns:system="clr-namespace:System;assembly=mscorlib">11</system:Double>
+    <system:Double x:Key="FontSizeFileCount"    xmlns:system="clr-namespace:System;assembly=mscorlib">11</system:Double>
+
+    <!-- ── 6A. Corner Radius System ────────────────────────────── -->
+    <CornerRadius x:Key="RadiusZone">12</CornerRadius>
+    <CornerRadius x:Key="RadiusTitleBar">12,12,0,0</CornerRadius>
+    <CornerRadius x:Key="RadiusCard">8</CornerRadius>
+    <CornerRadius x:Key="RadiusCardInner">5</CornerRadius>
+    <CornerRadius x:Key="RadiusBadge">99</CornerRadius>
+    <CornerRadius x:Key="RadiusProgressBar">2</CornerRadius>
+
+    <!-- ── 6B. Spacing (4px grid system) ───────────────────────── -->
+    <Thickness x:Key="ZonePadding">12</Thickness>
+    <GridLength x:Key="TitleBarHeight">32</GridLength>
+    <system:Double x:Key="TaskCardHeight"       xmlns:system="clr-namespace:System;assembly=mscorlib">32</system:Double>
+    <system:Double x:Key="ProgressBarHeight"    xmlns:system="clr-namespace:System;assembly=mscorlib">2</system:Double>
+    <system:Double x:Key="PomodoroRingSize"     xmlns:system="clr-namespace:System;assembly=mscorlib">20</system:Double>
+    <Thickness x:Key="TaskCardSpacing">0,2,0,2</Thickness>
+    <Thickness x:Key="SectionSpacing">0,8,0,0</Thickness>
+    <Thickness x:Key="BadgePadding">4,2,4,2</Thickness>
+
+    <!-- ── 3A. Shadow System (three-layer soft shadow) ─────────── -->
+    <!-- These are the opacity values for the three shadow layers -->
+    <system:Double x:Key="ShadowLayer3Opacity"  xmlns:system="clr-namespace:System;assembly=mscorlib">0.06</system:Double>
+    <system:Double x:Key="ShadowLayer2Opacity"  xmlns:system="clr-namespace:System;assembly=mscorlib">0.10</system:Double>
+    <system:Double x:Key="ShadowLayer1Opacity"  xmlns:system="clr-namespace:System;assembly=mscorlib">0.15</system:Double>
+    <system:Double x:Key="ShadowLayer1HoverOpacity" xmlns:system="clr-namespace:System;assembly=mscorlib">0.22</system:Double>
+
+    <!-- ── 7B. Title Bar Button Hover Style ────────────────────── -->
+    <Style x:Key="TitleBarBtnStyle" TargetType="Border">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCardInner}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Close button: red tint on hover -->
+    <Style x:Key="CloseBtnStyle" TargetType="Border" BasedOn="{StaticResource TitleBarBtnStyle}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <SolidColorBrush Color="{StaticResource Destructive}" Opacity="0.2"/>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ── Task Card Container Style ───────────────────────────── -->
+    <Style x:Key="TaskCardContainerStyle" TargetType="Border">
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCardInner}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Margin" Value="{StaticResource TaskCardSpacing}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Surface1Brush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ── File Item Hover Style ───────────────────────────────── -->
+    <Style x:Key="FileItemHoverStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ── ListBoxItem Style (transparent, no chrome) ──────────── -->
+    <Style x:Key="ZoneListBoxItemStyle" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Bd" Background="Transparent"
+                            CornerRadius="{StaticResource RadiusCard}">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background"
+                                    Value="{StaticResource SurfaceHoverBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── ContextMenu & MenuItem Styling ─────────────────────── -->
+    <Style TargetType="{x:Type ContextMenu}">
+        <Setter Property="Background" Value="#E61A1A1A"/>
+        <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource PrimaryFont}"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="HasDropShadow" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ContextMenu}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="15" ShadowDepth="4" Opacity="0.5" Direction="270" Color="Black"/>
+                        </Border.Effect>
+                        <ScrollViewer CanContentScroll="True">
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type MenuItem}">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type MenuItem}">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" Margin="4,0"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type Separator}">
+        <Setter Property="Background" Value="#33FFFFFF"/>
+        <Setter Property="Margin" Value="4,4"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Separator}">
+                    <Border Background="{TemplateBinding Background}" Height="{TemplateBinding Height}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── 8. Sleek Fluent/Mac-Style ScrollBar ───────────────── -->
+    <Style x:Key="SleekScrollThumb" TargetType="{x:Type Thumb}">
+        <Setter Property="Background" Value="#66FFFFFF"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Thumb}">
+                    <Border x:Name="ThumbBorder"
+                            CornerRadius="3"
+                            Background="{TemplateBinding Background}"
+                            Margin="2,0"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type ScrollBar}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Grid x:Name="Bg" Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="true">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0"/>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0"/>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource SleekScrollThumb}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Width" Value="12"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="8"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

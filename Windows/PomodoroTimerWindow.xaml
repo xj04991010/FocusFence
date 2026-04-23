@@ -1,0 +1,61 @@
+<Window x:Class="FocusFence.Windows.PomodoroTimerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False"
+        Width="260" Height="100"
+        WindowStartupLocation="Manual"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        Deactivated="Window_Deactivated"
+        LocationChanged="Window_LocationChanged"
+        Loaded="Window_Loaded">
+    <Border x:Name="MainBorder" CornerRadius="12" Background="#DD1E1E1E" BorderBrush="#55C69C6D" BorderThickness="1" Padding="12,12">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.5"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header bar with Title & Controls -->
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <TextBlock x:Name="TaskLabelText" Text="專注中..." Foreground="#E6FFFFFF" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,90,0"/>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <!-- Noise Controls -->
+                    <Border x:Name="WhiteNoiseBtn" Cursor="Hand" MouseLeftButtonDown="WhiteNoiseBtn_Click" Background="Transparent" ToolTip="白噪音">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0" Opacity="0.4" x:Name="WhiteNoiseIcon">
+                            <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="White" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="白音" FontSize="11" Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="BrownNoiseBtn" Cursor="Hand" MouseLeftButtonDown="BrownNoiseBtn_Click" Background="Transparent" ToolTip="褐色噪音">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0" Opacity="0.4" x:Name="BrownNoiseIcon">
+                            <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="#C69C6D" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="褐音" FontSize="11" Foreground="#C69C6D" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Pause/Resume -->
+                    <Border x:Name="PauseBtn" Cursor="Hand" MouseLeftButtonDown="PauseBtn_Click" Background="Transparent" ToolTip="暫停 / 恢復">
+                        <TextBlock x:Name="PauseIcon" Text="⏸" FontSize="12" Foreground="White" Margin="0,0,6,0"/>
+                    </Border>
+                    <Border Cursor="Hand" MouseLeftButtonDown="PinBtn_Click" Background="Transparent">
+                        <TextBlock x:Name="PinIcon" Text="📌" FontSize="12" Foreground="White" ToolTip="釘選在最上層" Margin="0,0,6,0"/>
+                    </Border>
+                    <Border Cursor="Hand" MouseLeftButtonDown="StopBtn_Click" Background="Transparent">
+                        <TextBlock Text="✕" FontSize="12" Foreground="#EF5350" FontWeight="Bold" ToolTip="停止番茄鐘"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- Timer -->
+            <TextBlock x:Name="TimerText" Grid.Row="1" Text="25:00" Foreground="#C69C6D" FontSize="36" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0"/>
+
+            <!-- Progress Arc -->
+            <ProgressBar x:Name="ProgressArc" Grid.Row="2" Height="2" Margin="4,4,4,0" Background="#33FFFFFF" Foreground="#C69C6D" BorderThickness="0" Maximum="100"/>
+        </Grid>
+    </Border>
+</Window>

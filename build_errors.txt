@@ -1,0 +1,13 @@
+﻿  正在判斷要還原的專案...
+  所有專案都在最新狀態，可進行還原。
+C:\Users\何\Desktop\desk\FocusFence\Windows\DashboardWindow.xaml.cs(85,9): error CS0103: 名稱 'TodayTomatoCount' 不存在於目前的內容中 [C:\Users\何\Desktop\desk\FocusFence\FocusFence_u2jh4gnt_wpftmp.csproj]
+C:\Users\何\Desktop\desk\FocusFence\Windows\DashboardWindow.xaml.cs(101,121): warning CS8629: 可為 Null 的實值型別可為 Null。 [C:\Users\何\Desktop\desk\FocusFence\FocusFence_u2jh4gnt_wpftmp.csproj]
+
+建置失敗。
+
+C:\Users\何\Desktop\desk\FocusFence\Windows\DashboardWindow.xaml.cs(101,121): warning CS8629: 可為 Null 的實值型別可為 Null。 [C:\Users\何\Desktop\desk\FocusFence\FocusFence_u2jh4gnt_wpftmp.csproj]
+C:\Users\何\Desktop\desk\FocusFence\Windows\DashboardWindow.xaml.cs(85,9): error CS0103: 名稱 'TodayTomatoCount' 不存在於目前的內容中 [C:\Users\何\Desktop\desk\FocusFence\FocusFence_u2jh4gnt_wpftmp.csproj]
+    1 個警告
+    1 個錯誤
+
+經過時間 00:00:02.39
