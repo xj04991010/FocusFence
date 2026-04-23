@@ -29,6 +29,29 @@ public partial class PomodoroTimerWindow : Window
         Top = 20;
     }
 
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+    {
+        base.OnRenderSizeChanged(sizeInfo);
+        if (sizeInfo.WidthChanged)
+        {
+            this.Height = this.Width / 2.5;
+        }
+        else if (sizeInfo.HeightChanged)
+        {
+            this.Width = this.Height * 2.5;
+        }
+
+        // Adaptive UI: Hide elements when too small to prevent overlap
+        if (AuxControls != null)
+        {
+            AuxControls.Visibility = this.Width < 220 ? Visibility.Collapsed : Visibility.Visible;
+        }
+        if (TaskLabelText != null)
+        {
+            TaskLabelText.Visibility = this.Width < 160 ? Visibility.Collapsed : Visibility.Visible;
+        }
+    }
+
     public void SetVolume(double vol)
     {
         _currentVolume = Math.Clamp(vol, 0, 1);
@@ -50,11 +73,16 @@ public partial class PomodoroTimerWindow : Window
         double progressPercent = 100 - (progressRatio * 100);
         ProgressArc.Value = progressPercent;
 
-        // --- Premium Dynamic Color ---
+        // --- Premium Dynamic Color & Glow ---
         var color = GetInterpolatedColor(progressRatio);
         var brush = new SolidColorBrush(color);
         TimerText.Foreground = brush;
         ProgressArc.Foreground = brush;
+        
+        if (TimerText.Effect is DropShadowEffect glow)
+        {
+            glow.Color = color;
+        }
 
         // --- Pulse Animation for last 60s ---
         if (remainingSeconds <= 60 && remainingSeconds > 0)

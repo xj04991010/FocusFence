@@ -487,6 +487,31 @@ public partial class DashboardWindow : Window
         PomoLabelInput.Text = "";
     }
 
+    private async void PinToTaskbar_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show("正在為您進行正式打包（Publish）...\n這將產出一個「單一檔案、免安裝」的專業版 EXE。\n\n完成後會自動為您開啟資料夾，屆時請將 FocusFence.exe 拖曳至您的工具列即可！", "FocusFence 打包中", MessageBoxButton.OK, MessageBoxImage.Information);
+
+        try
+        {
+            // Use Process.Start to trigger the build and open folder
+            string publishCmd = "dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:IncludeNativeLibrariesForSelfContained=true";
+            
+            await Task.Run(() => {
+                var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c {publishCmd} & explorer bin\\Release\\net9.0-windows\\win-x64\\publish",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                process?.WaitForExit();
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"打包過程中出現小插曲：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
 
 
     private void TitleBar_Drag(object sender, MouseButtonEventArgs e)

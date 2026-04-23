@@ -599,6 +599,29 @@
                     </ItemsControl>
                 </ScrollViewer>
             </Grid>
+
+            <!-- Bottom Bar with Global Actions -->
+            <Grid Grid.Row="4" Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="FocusFence v5.0 Designer Edition" Foreground="#66FFFFFF" FontSize="10" VerticalAlignment="Center" Opacity="0.5"/>
+                </StackPanel>
+
+                <Button Grid.Column="1" Click="PinToTaskbar_Click" 
+                        Padding="12,4" Height="30" Cursor="Hand"
+                        Background="#11FFFFFF" BorderBrush="#22FFFFFF" BorderThickness="1">
+                    <Button.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🛠️" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="打包並固定到工具列" FontSize="11" Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+            </Grid>
         </Grid>
     </Border>
 </Window>
