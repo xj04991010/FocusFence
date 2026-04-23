@@ -99,6 +99,8 @@ public partial class DashboardWindow : Window
         tt.BeginAnimation(TranslateTransform.YProperty, slide);
         // ----------------------------------
 
+        this.Topmost = true;
+        this.Activate();
         RefreshData();
     }
 
