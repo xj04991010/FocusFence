@@ -23,7 +23,7 @@ public sealed class ContextLaunchService
     private readonly AppConfig _config;
     private readonly PomodoroService _pomodoroService;
 
-    /// <summary>Fired when the active context changes (newZoneTitle, or null for deactivation).</summary>
+    /// <summary>Fired when the active context changes (newZoneId, or null for deactivation).</summary>
     public event Action<string?>? OnContextChanged;
 
     public ContextLaunchService(AppConfig config, PomodoroService pomodoroService)
@@ -35,9 +35,9 @@ public sealed class ContextLaunchService
     /// <summary>
     /// Activates a Zone's context: launches configured apps, adjusts volume, starts Pomodoro.
     /// </summary>
-    public void LaunchContext(string zoneTitle)
+    public void LaunchContext(string zoneId)
     {
-        var zone = _config.Zones.FirstOrDefault(z => z.Title == zoneTitle);
+        var zone = _config.Zones.FirstOrDefault(z => z.Id == zoneId);
         if (zone?.LaunchConfig == null) return;
 
         // Deactivate previous context
@@ -45,7 +45,7 @@ public sealed class ContextLaunchService
             z.IsActiveContext = false;
 
         zone.IsActiveContext = true;
-        _config.ActiveContextZone = zoneTitle;
+        _config.ActiveContextZone = zoneId;
         zone.LastInteractedAt = DateTime.Now;
 
         var lc = zone.LaunchConfig;
@@ -57,7 +57,7 @@ public sealed class ContextLaunchService
             {
                 LaunchOrFocus(appPath);
             }
-            catch { /* app launch is best-effort */ }
+            catch (Exception ex) { Debug.WriteLine($"App launch failed: {ex.Message}"); }
         }
 
         // Set system volume if configured
@@ -69,10 +69,10 @@ public sealed class ContextLaunchService
         // Auto-start Pomodoro if configured
         if (lc.AutoStartPomodoro)
         {
-            _pomodoroService.Start(zoneTitle, zone.Pomodoro?.DurationMinutes ?? 25);
+            _pomodoroService.Start(zoneId, zone.Pomodoro?.DurationMinutes ?? 25);
         }
 
-        OnContextChanged?.Invoke(zoneTitle);
+        OnContextChanged?.Invoke(zoneId);
     }
 
     /// <summary>
@@ -142,8 +142,8 @@ public sealed class ContextLaunchService
                 WindowStyle = ProcessWindowStyle.Hidden
             };
             try { Process.Start(nircmd); }
-            catch { /* nircmd not available, skip volume change */ }
+            catch (Exception ex) { Debug.WriteLine($"nircmd not available: {ex.Message}"); }
         }
-        catch { /* volume control is best-effort */ }
+        catch (Exception ex) { Debug.WriteLine($"Volume control failed: {ex.Message}"); }
     }
 }

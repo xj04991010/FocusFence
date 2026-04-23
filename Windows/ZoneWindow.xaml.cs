@@ -525,14 +525,14 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
 
     private void PomodoroBtn_Click(object s, MouseButtonEventArgs e)
     {
-        PomodoroStartRequested?.Invoke(_config.Title);
+        PomodoroStartRequested?.Invoke(_config.Id);
         e.Handled = true;
     }
 
     private void PomodoroIndicator_Click(object s, MouseButtonEventArgs e)
     {
         // Clicking the running indicator also requests start/stop
-        PomodoroStartRequested?.Invoke(_config.Title);
+        PomodoroStartRequested?.Invoke(_config.Id);
         e.Handled = true;
     }
 
@@ -1634,7 +1634,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
         var menu = new ContextMenu();
 
         var launchItem = new MenuItem { Header = "🚀 啟動情境 (Launch Context)" };
-        launchItem.Click += (_, _) => ContextLaunchRequested?.Invoke(_config.Title);
+        launchItem.Click += (_, _) => ContextLaunchRequested?.Invoke(_config.Id);
         menu.Items.Add(launchItem);
 
 

@@ -3,15 +3,27 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False"
-        Width="260" Height="100"
+        Width="280" Height="110"
         WindowStartupLocation="Manual"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         Deactivated="Window_Deactivated"
         LocationChanged="Window_LocationChanged"
-        Loaded="Window_Loaded">
-    <Border x:Name="MainBorder" CornerRadius="12" Background="#DD1E1E1E" BorderBrush="#55C69C6D" BorderThickness="1" Padding="12,12">
+        Loaded="Window_Loaded"
+        KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <ResourceDictionary Source="/Themes/DesignTokens.xaml"/>
+    </Window.Resources>
+    <Border x:Name="MainBorder" CornerRadius="{StaticResource RadiusZone}"
+            BorderThickness="1" Padding="14,12"
+            AutomationProperties.Name="番茄鐘計時器">
+        <Border.Background>
+            <SolidColorBrush Color="{StaticResource BgBlurTint}"/>
+        </Border.Background>
+        <Border.BorderBrush>
+            <SolidColorBrush Color="{StaticResource BorderHighlight}" Opacity="0.35"/>
+        </Border.BorderBrush>
         <Border.Effect>
-            <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.5"/>
+            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.5"/>
         </Border.Effect>
         <Grid>
             <Grid.RowDefinitions>
@@ -22,40 +34,136 @@
             
             <!-- Header bar with Title & Controls -->
             <Grid Grid.Row="0" Margin="0,0,0,4">
-                <TextBlock x:Name="TaskLabelText" Text="專注中..." Foreground="#E6FFFFFF" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,90,0"/>
+                <TextBlock x:Name="TaskLabelText" Text="專注中..." 
+                           Foreground="{StaticResource TextPrimaryBrush}" 
+                           FontSize="14" FontWeight="SemiBold" 
+                           FontFamily="{StaticResource PrimaryFont}"
+                           TextTrimming="CharacterEllipsis" Margin="0,0,120,0"/>
                 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <!-- Noise Controls -->
-                    <Border x:Name="WhiteNoiseBtn" Cursor="Hand" MouseLeftButtonDown="WhiteNoiseBtn_Click" Background="Transparent" ToolTip="白噪音">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0" Opacity="0.4" x:Name="WhiteNoiseIcon">
-                            <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="White" Margin="0,0,2,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="白音" FontSize="11" Foreground="White" VerticalAlignment="Center"/>
+                    <!-- Noise Controls — Enlarged click targets (min 36x28) -->
+                    <Border x:Name="WhiteNoiseBtn" Cursor="Hand" MouseLeftButtonDown="WhiteNoiseBtn_Click"
+                            Background="Transparent" ToolTip="白噪音 (W)" Padding="4,4"
+                            CornerRadius="4" MinWidth="36" MinHeight="28"
+                            AutomationProperties.Name="切換白噪音">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" Opacity="0.4" x:Name="WhiteNoiseIcon" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE767;" FontFamily="{StaticResource IconFont}" FontSize="12" 
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="白音" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" 
+                                       FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
-                    <Border x:Name="BrownNoiseBtn" Cursor="Hand" MouseLeftButtonDown="BrownNoiseBtn_Click" Background="Transparent" ToolTip="褐色噪音">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0" Opacity="0.4" x:Name="BrownNoiseIcon">
-                            <TextBlock Text="&#xE767;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="#C69C6D" Margin="0,0,2,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="褐音" FontSize="11" Foreground="#C69C6D" VerticalAlignment="Center"/>
+                    <Border x:Name="BrownNoiseBtn" Cursor="Hand" MouseLeftButtonDown="BrownNoiseBtn_Click"
+                            Background="Transparent" ToolTip="褐色噪音 (B)" Padding="4,4"
+                            CornerRadius="4" MinWidth="36" MinHeight="28"
+                            AutomationProperties.Name="切換褐色噪音">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" Opacity="0.4" x:Name="BrownNoiseIcon" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE767;" FontFamily="{StaticResource IconFont}" FontSize="12" 
+                                       Foreground="#C69C6D" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="褐音" FontSize="11" Foreground="#C69C6D" 
+                                       FontFamily="{StaticResource PrimaryFont}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     <!-- Pause/Resume -->
-                    <Border x:Name="PauseBtn" Cursor="Hand" MouseLeftButtonDown="PauseBtn_Click" Background="Transparent" ToolTip="暫停 / 恢復">
-                        <TextBlock x:Name="PauseIcon" Text="⏸" FontSize="12" Foreground="White" Margin="0,0,6,0"/>
+                    <Border x:Name="PauseBtn" Cursor="Hand" MouseLeftButtonDown="PauseBtn_Click"
+                            Background="Transparent" ToolTip="暫停 / 恢復 (Space)" Padding="4,4"
+                            CornerRadius="4" MinWidth="28" MinHeight="28"
+                            AutomationProperties.Name="暫停或恢復計時器">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock x:Name="PauseIcon" Text="⏸" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <Border Cursor="Hand" MouseLeftButtonDown="PinBtn_Click" Background="Transparent">
-                        <TextBlock x:Name="PinIcon" Text="📌" FontSize="12" Foreground="White" ToolTip="釘選在最上層" Margin="0,0,6,0"/>
+                    <Border Cursor="Hand" MouseLeftButtonDown="PinBtn_Click" 
+                            Background="Transparent" Padding="4,4"
+                            CornerRadius="4" MinWidth="28" MinHeight="28"
+                            AutomationProperties.Name="釘選在最上層">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock x:Name="PinIcon" Text="📌" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" 
+                                   ToolTip="釘選 (P)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <Border Cursor="Hand" MouseLeftButtonDown="StopBtn_Click" Background="Transparent">
-                        <TextBlock Text="✕" FontSize="12" Foreground="#EF5350" FontWeight="Bold" ToolTip="停止番茄鐘"/>
+                    <Border Cursor="Hand" MouseLeftButtonDown="StopBtn_Click"
+                            Background="Transparent" Padding="4,4"
+                            CornerRadius="4" MinWidth="28" MinHeight="28"
+                            AutomationProperties.Name="停止番茄鐘">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background">
+                                            <Setter.Value>
+                                                <SolidColorBrush Color="{StaticResource Destructive}" Opacity="0.2"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="✕" FontSize="13" Foreground="{StaticResource DestructiveBrush}" 
+                                   FontWeight="Bold" ToolTip="停止 (Esc)"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </StackPanel>
             </Grid>
 
             <!-- Timer -->
-            <TextBlock x:Name="TimerText" Grid.Row="1" Text="25:00" Foreground="#C69C6D" FontSize="36" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0"/>
+            <TextBlock x:Name="TimerText" Grid.Row="1" Text="25:00" 
+                       Foreground="#C69C6D" FontSize="36" FontWeight="Bold" 
+                       FontFamily="{StaticResource MonoFont}" 
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0"/>
 
             <!-- Progress Arc -->
-            <ProgressBar x:Name="ProgressArc" Grid.Row="2" Height="2" Margin="4,4,4,0" Background="#33FFFFFF" Foreground="#C69C6D" BorderThickness="0" Maximum="100"/>
+            <ProgressBar x:Name="ProgressArc" Grid.Row="2" Height="3" Margin="4,4,4,0" 
+                         Background="#22FFFFFF" Foreground="#C69C6D" BorderThickness="0" Maximum="100">
+                <ProgressBar.Resources>
+                    <Style TargetType="ProgressBar">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ProgressBar">
+                                    <Border CornerRadius="2" Background="{TemplateBinding Background}">
+                                        <Border x:Name="PART_Indicator" CornerRadius="2" 
+                                                Background="{TemplateBinding Foreground}"
+                                                HorizontalAlignment="Left"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ProgressBar.Resources>
+            </ProgressBar>
         </Grid>
     </Border>
 </Window>

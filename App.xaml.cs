@@ -133,9 +133,9 @@ public partial class App : Application
         _dashboard.RequestCreateZone += OnCreateZoneRequest;
         _dashboard.RequestDeleteZone += OnDeleteZoneRequest;
         _dashboard.RequestToggleZone += OnToggleZoneRequest;
-        _dashboard.RequestStartPomodoro += (zoneTitle, label, duration) =>
+        _dashboard.RequestStartPomodoro += (zoneId, label, duration) =>
         {
-            _pomodoroService!.Start(zoneTitle, duration, label);
+            _pomodoroService!.Start(zoneId, duration, label);
             
             if (_pomoTimerWin == null)
             {
@@ -190,11 +190,11 @@ public partial class App : Application
 
     // ── Pomodoro Event Handlers ─────────────────────────────────────
 
-    private void OnPomodoroTick(string zoneTitle, int remaining, int total)
+    private void OnPomodoroTick(string zoneId, int remaining, int total)
     {
         Dispatcher.BeginInvoke(() =>
         {
-            var zone = _zones.FirstOrDefault(z => z.Config.Title == zoneTitle);
+            var zone = _zones.FirstOrDefault(z => z.Config.Id == zoneId);
             zone?.UpdatePomodoroDisplay(remaining, total);
 
             if (_pomoTimerWin != null && _pomodoroService != null)
@@ -204,11 +204,11 @@ public partial class App : Application
         });
     }
 
-    private void OnPomodoroComplete(string zoneTitle, int completedCount)
+    private void OnPomodoroComplete(string zoneId, int completedCount)
     {
         Dispatcher.BeginInvoke(() =>
         {
-            var zone = _zones.FirstOrDefault(z => z.Config.Title == zoneTitle);
+            var zone = _zones.FirstOrDefault(z => z.Config.Id == zoneId);
             zone?.OnPomodoroComplete();
 
             ClosePomodoroTimer();
@@ -227,14 +227,14 @@ public partial class App : Application
         }
     }
 
-    private void OnPomodoroFocusChanged(string zoneTitle, bool isActive)
+    private void OnPomodoroFocusChanged(string zoneId, bool isActive)
     {
-        if (string.IsNullOrEmpty(zoneTitle)) return;
+        if (string.IsNullOrEmpty(zoneId)) return;
         Dispatcher.BeginInvoke(() =>
         {
             foreach (var zone in _zones)
             {
-                if (zone.Config.Title == zoneTitle)
+                if (zone.Config.Id == zoneId)
                 {
                     zone.SetFocusDim(false); // Active zone always full opacity
                 }
@@ -278,16 +278,16 @@ public partial class App : Application
 
     // ── Context Launch Event Handler ────────────────────────────────
 
-    private void OnContextChanged(string? zoneTitle)
+    private void OnContextChanged(string? zoneId)
     {
         Dispatcher.BeginInvoke(() =>
         {
             foreach (var zone in _zones)
             {
-                bool isActive = zone.Config.Title == zoneTitle;
+                bool isActive = zone.Config.Id == zoneId;
                 zone.SetContextActive(isActive);
 
-                if (zoneTitle != null && !isActive)
+                if (zoneId != null && !isActive)
                     zone.SetFocusDim(true);
                 else
                     zone.SetFocusDim(false);
@@ -496,12 +496,12 @@ public partial class App : Application
         };
 
         // Wire up Pomodoro request
-        zone.PomodoroStartRequested += (title) => StartGlobalPomodoro(title);
+        zone.PomodoroStartRequested += (zoneId) => StartGlobalPomodoro(zoneId);
 
         // Wire up Context Launch request
-        zone.ContextLaunchRequested += (title) =>
+        zone.ContextLaunchRequested += (zoneId) =>
         {
-            _contextLaunchService?.LaunchContext(title);
+            _contextLaunchService?.LaunchContext(zoneId);
         };
 
         bool isOnPage = zc.IsPinned || zc.DesktopPage == _config.ActiveDesktopPage;
@@ -572,7 +572,7 @@ public partial class App : Application
     }
     // ── Global Pomodoro ──────────────────────────────────────────────
 
-    private void StartGlobalPomodoro(string? zoneTitle)
+    private void StartGlobalPomodoro(string? zoneId)
     {
         if (_pomodoroService!.IsRunning)
         {
@@ -591,7 +591,7 @@ public partial class App : Application
         if (_dashboard.WindowState == WindowState.Minimized) _dashboard.WindowState = WindowState.Normal;
         _dashboard.Activate();
         _dashboard.RefreshData();
-        _dashboard.ShowPomodoroTab(zoneTitle);
+        _dashboard.ShowPomodoroTab(zoneId);
     }
 
     // ── Global Memo ─────────────────────────────────────────────────

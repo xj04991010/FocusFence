@@ -62,10 +62,17 @@ public static class ConfigService
                 SaveRotatingSnapshot();
             }
         }
-        catch { /* best-effort backup */ }
+        catch (Exception ex)
+        { 
+            System.Diagnostics.Debug.WriteLine($"Backup failed: {ex.Message}");
+        }
 
         string json = JsonSerializer.Serialize(config, JsonOpts);
-        File.WriteAllText(ConfigPath, json);
+        
+        // Atomic write to prevent corruption
+        string tmpPath = ConfigPath + ".tmp";
+        File.WriteAllText(tmpPath, json);
+        File.Move(tmpPath, ConfigPath, overwrite: true);
     }
 
     /// <summary>
@@ -88,10 +95,10 @@ public static class ConfigService
                 .ToList();
             foreach (var old in files)
             {
-                try { File.Delete(old); } catch { }
+                try { File.Delete(old); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Snapshot delete failed: {ex.Message}"); }
             }
         }
-        catch { /* best-effort snapshot rotation */ }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Snapshot rotation failed: {ex.Message}"); }
     }
 
     /// <summary>

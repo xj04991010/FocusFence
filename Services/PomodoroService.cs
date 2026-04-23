@@ -9,7 +9,8 @@ namespace FocusFence.Services;
 
 /// <summary>
 /// Manages Pomodoro timer sessions for individual Zones.
-/// Uses System.Timers.Timer (not DispatcherTimer) to avoid UI thread blocking.
+/// Uses DispatcherTimer on the UI thread with absolute end-time tracking
+/// to ensure accurate countdown even if tick intervals are slightly off.
 /// Logs completed sessions to a JSONL file for dashboard analytics.
 /// </summary>
 public sealed class PomodoroService : IDisposable
@@ -25,16 +26,16 @@ public sealed class PomodoroService : IDisposable
     // Limits concurrent file writes to 1 thread safely
     private static readonly SemaphoreSlim _logSemaphore = new(1, 1);
 
-    /// <summary>Fired every second with (zoneTitle, remainingSeconds, totalSeconds).</summary>
+    /// <summary>Fired every second with (zoneId, remainingSeconds, totalSeconds).</summary>
     public event Action<string, int, int>? OnTick;
 
-    /// <summary>Fired when the last 2 minutes begin (zoneTitle).</summary>
+    /// <summary>Fired when the last 2 minutes begin (zoneId).</summary>
     public event Action<string>? OnWarningPhase;
 
-    /// <summary>Fired when a session completes (zoneTitle, completedCount).</summary>
+    /// <summary>Fired when a session completes (zoneId, completedCount).</summary>
     public event Action<string, int>? OnSessionComplete;
 
-    /// <summary>Fired when other zones should dim/undim (zoneTitle, isActive).</summary>
+    /// <summary>Fired when other zones should dim/undim (zoneId, isActive).</summary>
     public event Action<string, bool>? OnFocusChanged;
 
     private readonly PomodoroState _globalState = new();
@@ -45,17 +46,22 @@ public sealed class PomodoroService : IDisposable
     }
 
     public bool IsRunning => _timer != null && _timer.IsEnabled;
+    public string? ActiveZoneId => _activeZone?.Id ?? "";
     public string? ActiveZoneTitle => _activeZone?.Title ?? "";
     public string? ActiveLabel => _sessionLabel;
 
-    public void Start(string zoneTitle, int durationMinutes = 25, string label = "")
+    private DateTime _sessionStartedAt;
+
+    public void Start(string zoneId, int durationMinutes = 25, string label = "")
     {
         // Stop any existing session
         if (IsRunning) Stop();
 
-        _activeZone = _config.Zones.FirstOrDefault(z => z.Title == zoneTitle);
+        _activeZone = _config.Zones.FirstOrDefault(z => z.Id == zoneId);
 
         _sessionLabel = label;
+        _sessionStartedAt = DateTime.Now;
+        
         var state = _activeZone?.Pomodoro;
         if (state == null)
         {
@@ -65,13 +71,13 @@ public sealed class PomodoroService : IDisposable
         
         state.DurationMinutes = durationMinutes;
         state.IsRunning = true;
-        state.StartedAt = DateTime.Now;
+        state.StartedAt = _sessionStartedAt;
         state.ActiveLabel = label;
         
         _targetEndTime = DateTime.UtcNow.AddMinutes(durationMinutes);
         state.RemainingSeconds = durationMinutes * 60;
 
-        if (!string.IsNullOrEmpty(zoneTitle)) OnFocusChanged?.Invoke(zoneTitle, true);
+        if (!string.IsNullOrEmpty(zoneId)) OnFocusChanged?.Invoke(zoneId, true);
 
         // Use DispatcherTimer — fires natively on UI thread, 0 context-switch overhead
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -86,7 +92,7 @@ public sealed class PomodoroService : IDisposable
 
         if (_activeZone != null)
         {
-            OnFocusChanged?.Invoke(_activeZone.Title, false);
+            OnFocusChanged?.Invoke(_activeZone.Id, false);
             if (_activeZone.Pomodoro != null)
                 _activeZone.Pomodoro.IsRunning = false;
         }
@@ -114,7 +120,14 @@ public sealed class PomodoroService : IDisposable
         
         state.IsRunning = true;
         _targetEndTime = DateTime.UtcNow.AddSeconds(_pausedRemainingSeconds);
-        _timer?.Start();
+
+        // Recreate the timer if it was disposed (e.g. after Stop())
+        if (_timer == null)
+        {
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _timer.Tick += (_, _) => Tick();
+        }
+        _timer.Start();
     }
 
     private void Tick()
@@ -128,11 +141,11 @@ public sealed class PomodoroService : IDisposable
         state.RemainingSeconds = remaining;
         int total = state.DurationMinutes * 60;
 
-        OnTick?.Invoke(_activeZone?.Title ?? "", remaining, total);
+        OnTick?.Invoke(_activeZone?.Id ?? "", remaining, total);
 
         // Warning phase: last 2 minutes
         if (remaining == 120 && _activeZone != null)
-            OnWarningPhase?.Invoke(_activeZone.Title);
+            OnWarningPhase?.Invoke(_activeZone.Id);
 
         // Session complete
         if (remaining <= 0)
@@ -142,9 +155,9 @@ public sealed class PomodoroService : IDisposable
             state.CompletedCount++;
             state.RemainingSeconds = 0;
 
-            _ = LogSessionAsync(_activeZone?.Title ?? "", state.DurationMinutes, _sessionLabel);
-            OnSessionComplete?.Invoke(_activeZone?.Title ?? "", state.CompletedCount);
-            if (_activeZone != null) OnFocusChanged?.Invoke(_activeZone.Title, false);
+            _ = LogSessionAsync(_activeZone?.Id ?? "", _activeZone?.Title ?? "", state.DurationMinutes, _sessionLabel);
+            OnSessionComplete?.Invoke(_activeZone?.Id ?? "", state.CompletedCount);
+            if (_activeZone != null) OnFocusChanged?.Invoke(_activeZone.Id, false);
 
             _timer = null;
             _sessionLabel = "";
@@ -155,7 +168,7 @@ public sealed class PomodoroService : IDisposable
     /// <summary>
     /// Writes a completed Pomodoro record to the JSONL log asynchronously without blocking UI.
     /// </summary>
-    private async Task LogSessionAsync(string zoneTitle, int durationMinutes, string label)
+    private async Task LogSessionAsync(string zoneId, string zoneTitle, int durationMinutes, string label)
     {
         await _logSemaphore.WaitAsync();
         try
@@ -164,9 +177,9 @@ public sealed class PomodoroService : IDisposable
             _config.PomodoroHistory.Add(new PomodoroLogEntry
             {
                 Label = label,
-                ZoneTitle = zoneTitle,
+                ZoneTitle = zoneTitle, // Keep Title for display in history
                 DurationMinutes = durationMinutes,
-                StartedAt = DateTime.Now.AddMinutes(-durationMinutes),
+                StartedAt = _sessionStartedAt, // Use the accurate start time recorded at Start()
                 CompletedAt = DateTime.Now,
                 IsCompleted = true
             });
@@ -194,7 +207,7 @@ public sealed class PomodoroService : IDisposable
             string line = JsonSerializer.Serialize(record) + "\n";
             await File.AppendAllTextAsync(logPath, line);
         }
-        catch { /* best-effort logging */ }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Pomodoro log failed: {ex.Message}"); }
         finally
         {
             _logSemaphore.Release();

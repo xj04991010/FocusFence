@@ -58,6 +58,41 @@ public partial class PomodoroTimerWindow : Window
         e.Handled = true;
     }
 
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Space:
+                PauseBtn_Click(this, null!);
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                RequestStop?.Invoke();
+                e.Handled = true;
+                break;
+            case Key.W:
+                WhiteNoiseBtn_Click(this, null!);
+                e.Handled = true;
+                break;
+            case Key.B:
+                BrownNoiseBtn_Click(this, null!);
+                e.Handled = true;
+                break;
+            case Key.P:
+                _isPinned = !_isPinned;
+                Topmost = _isPinned;
+                PinIcon.Foreground = _isPinned
+                    ? new SolidColorBrush(Colors.White)
+                    : new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+                e.Handled = true;
+                break;
+            case Key.M:
+                StopNoise();
+                e.Handled = true;
+                break;
+        }
+    }
+
     private void PauseBtn_Click(object sender, MouseButtonEventArgs e)
     {
         _isPaused = !_isPaused;

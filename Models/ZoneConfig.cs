@@ -9,15 +9,24 @@ public class ZoneConfig
     public double Width { get; set; } = 320;
     public double Height { get; set; } = 280;
     public string? FolderPath { get; set; }
-    public string AccentColor { get; set; } = "#C69C6D";
+    private string _accentColor = "#C69C6D";
+    private System.Windows.Media.Brush? _accentBrush;
+
+    public string AccentColor 
+    { 
+        get => _accentColor; 
+        set { _accentColor = value; _accentBrush = null; } // Invalidate cache
+    }
     
     [System.Text.Json.Serialization.JsonIgnore]
     public System.Windows.Media.Brush AccentColorBrush 
     {
         get 
         {
-            try { return (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(AccentColor)!; }
-            catch { return System.Windows.Media.Brushes.Gray; }
+            if (_accentBrush != null) return _accentBrush;
+            try { _accentBrush = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(AccentColor)!; }
+            catch { _accentBrush = System.Windows.Media.Brushes.Gray; }
+            return _accentBrush;
         }
     }
 
