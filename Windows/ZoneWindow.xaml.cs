@@ -1191,7 +1191,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     {
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
-            e.Effects = DragDropEffects.Move;
+            e.Effects = (e.AllowedEffects & DragDropEffects.Copy) != 0 ? DragDropEffects.Copy : DragDropEffects.Move;
         }
         else e.Effects = DragDropEffects.None;
         e.Handled = true;
@@ -1201,7 +1201,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     {
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
-            e.Effects = DragDropEffects.Move;
+            e.Effects = (e.AllowedEffects & DragDropEffects.Copy) != 0 ? DragDropEffects.Copy : DragDropEffects.Move;
             MainBorder.BorderThickness = new Thickness(2);
         }
         else e.Effects = DragDropEffects.None;
@@ -1251,8 +1251,18 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 while (File.Exists(dest) || Directory.Exists(dest))
                     dest = System.IO.Path.Combine(target, $"{bn} ({c++}){ext}");
 
-                if (File.Exists(src)) File.Move(src, dest);
-                else if (Directory.Exists(src)) Directory.Move(src, dest);
+                bool isCopy = (e.AllowedEffects & DragDropEffects.Move) == 0 || (e.KeyStates & DragDropKeyStates.ControlKey) != 0;
+                
+                if (File.Exists(src)) 
+                {
+                    if (isCopy) File.Copy(src, dest);
+                    else File.Move(src, dest);
+                }
+                else if (Directory.Exists(src)) 
+                {
+                    if (isCopy) FileSystem.CopyDirectory(src, dest);
+                    else Directory.Move(src, dest);
+                }
                 
                 undoRecords.Add(new FocusFence.Services.UndoRecord { OriginalSource = src, NewDestination = dest });
             }
@@ -1346,6 +1356,17 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 newPath = System.IO.Path.Combine(_currentPath, $"新增資料夾 ({c++})");
             Directory.CreateDirectory(newPath);
             RefreshFiles();
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var newFolderItem = _files.FirstOrDefault(f => f.FullPath == newPath);
+                if (newFolderItem != null)
+                {
+                    FileListBox.SelectedItem = newFolderItem;
+                    FileListBox.ScrollIntoView(newFolderItem);
+                    newFolderItem.IsEditing = true;
+                }
+            }), DispatcherPriority.Loaded);
         }
         catch (Exception ex) { MessageBox.Show(ex.Message); }
     }
@@ -1361,6 +1382,17 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 newPath = System.IO.Path.Combine(_currentPath, $"新增文字檔 ({c++}).txt");
             File.WriteAllText(newPath, "");
             RefreshFiles();
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var newFileItem = _files.FirstOrDefault(f => f.FullPath == newPath);
+                if (newFileItem != null)
+                {
+                    FileListBox.SelectedItem = newFileItem;
+                    FileListBox.ScrollIntoView(newFileItem);
+                    newFileItem.IsEditing = true;
+                }
+            }), DispatcherPriority.Loaded);
         }
         catch (Exception ex) { MessageBox.Show(ex.Message); }
     }
@@ -1559,7 +1591,19 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             Dispatcher.BeginInvoke(() =>
             {
                 tb.Focus();
-                tb.SelectAll();
+                string txt = tb.Text;
+                if (!string.IsNullOrEmpty(txt) && tb.DataContext is FileItem fi && !fi.IsDirectory)
+                {
+                    int extIdx = txt.LastIndexOf('.');
+                    if (extIdx > 0)
+                        tb.Select(0, extIdx);
+                    else
+                        tb.SelectAll();
+                }
+                else
+                {
+                    tb.SelectAll();
+                }
                 System.Windows.Input.Keyboard.Focus(tb);
             }, System.Windows.Threading.DispatcherPriority.Input);
         }

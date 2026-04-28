@@ -5,7 +5,20 @@
         Title="FocusFence" ShowInTaskbar="True" Topmost="True"
         Width="500" Height="620" WindowStartupLocation="CenterScreen">
     <Window.Resources>
-        <ResourceDictionary Source="/Themes/DesignTokens.xaml"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/DesignTokens.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="PomoChipStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource Surface2Brush}"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="0,8"/>
+                <Setter Property="Margin" Value="4"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="TextBlock.Foreground" Value="White"/>
+                <Setter Property="TextBlock.TextAlignment" Value="Center"/>
+            </Style>
+        </ResourceDictionary>
     </Window.Resources>
     <Border CornerRadius="20" BorderThickness="1" Margin="10"
             BorderBrush="{StaticResource ZoneBorderBrush}"
@@ -27,12 +40,12 @@
                         <GradientStop Color="#08FFFFFF" Offset="1"/>
                     </LinearGradientBrush>
                 </Border.Background>
-                <DockPanel Margin="16,0">
-                    <TextBlock x:Name="DashboardTitleText" Text="📊 FocusFence 控制台" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Border DockPanel.Dock="Right" Cursor="Hand" Padding="8,4" MouseLeftButtonDown="Close_Click">
+                <Grid Margin="16,0">
+                    <TextBlock x:Name="DashboardTitleText" Text="📊 FocusFence 控制台" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                    <Border Cursor="Hand" Padding="8,4" MouseLeftButtonDown="Close_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent">
                         <TextBlock Text="✕" Foreground="#88FFFFFF" FontSize="12"/>
                     </Border>
-                </DockPanel>
+                </Grid>
             </Border>
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="20,10,20,0">
                 <Border x:Name="TabZones" Padding="12,6" CornerRadius="6" Background="#33C69C6D" Cursor="Hand" MouseLeftButtonDown="TabZones_Click"><TextBlock x:Name="TabZonesText" Text="🗂️ 框框" Foreground="White" FontSize="12" FontWeight="SemiBold"/></Border>
@@ -127,7 +140,37 @@
             </Grid>
             <Grid x:Name="NotesContainer" Grid.Row="2" Grid.RowSpan="2" Visibility="Collapsed" Margin="10">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <ScrollViewer Grid.Row="1"><ItemsControl x:Name="GlobalNotesList"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Margin="6" Width="220" CornerRadius="8" Background="#FFF8E1" Padding="12"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="Bold"/><TextBox Text="{Binding Memo}" Background="Transparent" BorderThickness="0" TextWrapping="Wrap" AcceptsReturn="True" TextChanged="GlobalNoteText_Changed" Tag="{Binding Id}"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+                <Border Grid.Row="0" Margin="20,15,20,10" Background="{StaticResource Surface1Brush}" CornerRadius="12" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="全域設定" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="AutoRouteDownloadsCheck" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center" Cursor="Hand" Checked="AutoRouteDownloads_Checked" Unchecked="AutoRouteDownloads_Checked">
+                        <StackPanel Orientation="Horizontal" Margin="4,0,0,0">
+                            <TextBlock Text="📥 自動捕獲下載的圖片/影片到目標框框"/>
+                        </StackPanel>
+                    </CheckBox>
+                    <TextBlock Text="當此功能開啟時，新的下載素材會自動被移動到您選擇的目標框框中。" Foreground="{StaticResource TextTertiaryBrush}" FontSize="11" Margin="24,8,0,0" TextWrapping="Wrap"/>
+                    <StackPanel x:Name="DownloadTargetPanel" Orientation="Horizontal" Margin="24,8,0,0" Visibility="Collapsed">
+                        <TextBlock Text="目標框框：" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
+                        <ComboBox x:Name="DownloadTargetCombo" Width="150" Margin="8,0,0,0" DisplayMemberPath="Title" SelectedValuePath="Id" SelectionChanged="DownloadTargetCombo_SelectionChanged" Background="{StaticResource Surface2Brush}" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Margin="0,0,0,0" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="GlobalNotesList">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="6" Width="220" CornerRadius="8" Background="#FFF8E1" Padding="12">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                                    <TextBox Text="{Binding Memo}" Background="Transparent" BorderThickness="0" TextWrapping="Wrap" AcceptsReturn="True" TextChanged="GlobalNoteText_Changed" Tag="{Binding Id}"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
             </Grid>
             <Popup x:Name="DashColorPopup" StaysOpen="False" AllowsTransparency="True" Placement="Bottom"><Border Background="#2A2A2A" CornerRadius="8" Padding="8"><WrapPanel x:Name="DashColorPalette" Width="100"/></Border></Popup>
         </Grid>

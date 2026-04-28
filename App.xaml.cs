@@ -51,6 +51,7 @@ public partial class App : Application
     private PomodoroService? _pomodoroService;
     private DormancyService? _dormancyService;
     private ContextLaunchService? _contextLaunchService;
+    private DownloadCatcherService? _downloadCatcherService;
     private IntPtr _mouseHookId = IntPtr.Zero;
     private LowLevelMouseProc? _mouseHookProc; // prevent GC collection
     private DateTime _lastDoubleClickTime = DateTime.MinValue; // debounce
@@ -126,6 +127,9 @@ public partial class App : Application
 
         _dormancyService = new DormancyService(_config);
         _dormancyService.OnDormancyChanged += OnDormancyChanged;
+
+        _downloadCatcherService = new DownloadCatcherService(_config);
+        _downloadCatcherService.Start();
 
         // Create Dashboard
         _dashboard = new DashboardWindow(_config);
@@ -806,6 +810,8 @@ public partial class App : Application
 
         foreach (var zone in _zones) zone.SnapshotPosition();
         ConfigService.Save(_config);
+        _dormancyService?.Stop();
+        _downloadCatcherService?.Stop();
 
         _trayIcon.Visible = false;
         _trayIcon.Dispose();

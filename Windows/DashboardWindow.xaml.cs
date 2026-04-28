@@ -105,6 +105,18 @@ public partial class DashboardWindow : Window
         this.Topmost = true;
         this.Activate();
         RefreshData();
+
+        if (AutoRouteDownloadsCheck != null)
+        {
+            AutoRouteDownloadsCheck.IsChecked = _config.AutoRouteDownloadsToActiveZone;
+            DownloadTargetPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
+            
+            DownloadTargetCombo.ItemsSource = _config.Zones;
+            if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
+            {
+                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+            }
+        }
     }
 
     public void RefreshData()
@@ -119,6 +131,16 @@ public partial class DashboardWindow : Window
                 count = Directory.GetFileSystemEntries(zc.FolderPath).Length;
 
             _zoneItems.Add(new DashboardZoneItem(zc, count, () => ConfigurationChanged?.Invoke()));
+        }
+
+        if (DownloadTargetCombo != null)
+        {
+            DownloadTargetCombo.ItemsSource = null;
+            DownloadTargetCombo.ItemsSource = _config.Zones;
+            if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
+            {
+                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+            }
         }
 
         // Refresh Pomodoro stats & combobox
@@ -541,6 +563,34 @@ public partial class DashboardWindow : Window
     private void GlobalNoteText_Changed(object sender, TextChangedEventArgs e)
     {
         ConfigurationChanged?.Invoke();
+    }
+
+    private void AutoRouteDownloads_Checked(object sender, RoutedEventArgs e)
+    {
+        if (AutoRouteDownloadsCheck != null && DownloadTargetPanel != null)
+        {
+            bool isChecked = AutoRouteDownloadsCheck.IsChecked ?? false;
+            _config.AutoRouteDownloadsToActiveZone = isChecked;
+            DownloadTargetPanel.Visibility = isChecked ? Visibility.Visible : Visibility.Collapsed;
+            
+            // Auto-select first zone if none selected
+            if (isChecked && string.IsNullOrEmpty(_config.DownloadTargetZoneId) && _config.Zones.Count > 0)
+            {
+                _config.DownloadTargetZoneId = _config.Zones[0].Id;
+                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+            }
+
+            ConfigurationChanged?.Invoke();
+        }
+    }
+
+    private void DownloadTargetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DownloadTargetCombo?.SelectedValue is string zoneId)
+        {
+            _config.DownloadTargetZoneId = zoneId;
+            ConfigurationChanged?.Invoke();
+        }
     }
 
     protected override void OnClosing(CancelEventArgs e)

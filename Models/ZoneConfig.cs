@@ -82,6 +82,12 @@ public class AppConfig
 
     /// <summary>Global checklist for dashboard (便利貼/Tasks).</summary>
     public List<TaskCard> GlobalTasks { get; set; } = [];
+
+    /// <summary>Whether to automatically route downloaded media to the active context zone.</summary>
+    public bool AutoRouteDownloadsToActiveZone { get; set; } = false;
+
+    /// <summary>The ID of the Zone that should receive downloaded media.</summary>
+    public string? DownloadTargetZoneId { get; set; }
 }
 
 /// <summary>
