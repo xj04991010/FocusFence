@@ -57,6 +57,7 @@ public partial class App : Application
     private DateTime _lastDoubleClickTime = DateTime.MinValue; // debounce
 
     private EventWaitHandle? _showDashboardEvent;
+    private CancellationTokenSource? _appCts;
 
     private PomodoroTimerWindow? _pomoTimerWin;
 
@@ -71,21 +72,29 @@ public partial class App : Application
         }
 
         _showDashboardEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "FocusFence_ShowDashboard_Event");
+        _appCts = new CancellationTokenSource();
+        var ct = _appCts.Token;
         _ = Task.Run(() =>
         {
-            while (true)
+            while (!ct.IsCancellationRequested)
             {
-                _showDashboardEvent.WaitOne();
-                Dispatcher.BeginInvoke(() =>
+                try
                 {
-                    _dashboard.Show();
-                    if (_dashboard.WindowState == WindowState.Minimized) _dashboard.WindowState = WindowState.Normal;
-                    _dashboard.Activate();
-                    _dashboard.Topmost = true;
-                    _dashboard.Topmost = false;
-                });
+                    // Wait with cancellation support
+                    WaitHandle.WaitAny([_showDashboardEvent, ct.WaitHandle]);
+                    if (ct.IsCancellationRequested) break;
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        _dashboard.Show();
+                        if (_dashboard.WindowState == WindowState.Minimized) _dashboard.WindowState = WindowState.Normal;
+                        _dashboard.Activate();
+                        _dashboard.Topmost = true;
+                        _dashboard.Topmost = false;
+                    });
+                }
+                catch (OperationCanceledException) { break; }
             }
-        });
+        }, ct);
 
         base.OnStartup(e);
 
@@ -803,6 +812,16 @@ public partial class App : Application
     private void ExitApp()
     {
         _autoSaveTimer.Stop();
+
+        // Cancel background listener thread first
+        _appCts?.Cancel();
+
+        // Stop services before disposing (correct order)
+        _dormancyService?.Stop();
+        _downloadCatcherService?.Stop();
+        _pomodoroService?.Stop();
+
+        // Now dispose
         _hotkeyService?.Dispose();
         _pomodoroService?.Dispose();
         _dormancyService?.Dispose();
@@ -810,8 +829,6 @@ public partial class App : Application
 
         foreach (var zone in _zones) zone.SnapshotPosition();
         ConfigService.Save(_config);
-        _dormancyService?.Stop();
-        _downloadCatcherService?.Stop();
 
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
@@ -819,6 +836,8 @@ public partial class App : Application
         foreach (var zone in _zones) zone.Close();
         _dashboard.Close();
         _hotkeyWindow?.Close();
+        _showDashboardEvent?.Dispose();
+        _appCts?.Dispose();
 
         Shutdown();
     }

@@ -153,20 +153,30 @@ public partial class DashboardWindow : Window
 
     private void RefreshPomodoroData()
     {
+        // Snapshot the history to avoid cross-thread race with LogSessionAsync
+        var historySnapshot = _config.PomodoroHistory.ToList();
 
-        // Today's tomatoes (kept variable if needed for logic)
+        // Today's tomatoes
         var today = DateTime.Now.Date;
-        var todaysTomatoes = _config.PomodoroHistory.Where(x => x.IsCompleted && x.CompletedAt.HasValue && x.CompletedAt.Value.Date == today).Sum(x => x.DurationMinutes) / 25; // 25 min = 1 tomato
+        var todaysTomatoes = historySnapshot
+            .Where(x => x.IsCompleted && x.CompletedAt.HasValue && x.CompletedAt!.Value.Date == today)
+            .Sum(x => x.DurationMinutes) / 25; // 25 min = 1 tomato
+        TodayTomatoCount.Text = todaysTomatoes.ToString();
 
-        // Week's stamps (Assuming week starts on Monday or just tracking last 7 days total)
+        // Week's stamps (last 7 days)
         var weekStart = today.AddDays(-6);
-        int weeklyTomatoes = _config.PomodoroHistory.Where(x => x.IsCompleted && x.CompletedAt.HasValue && x.CompletedAt.Value.Date >= weekStart).Sum(x => x.DurationMinutes) / 25;
+        int weeklyTomatoes = historySnapshot
+            .Where(x => x.IsCompleted && x.CompletedAt.HasValue && x.CompletedAt!.Value.Date >= weekStart)
+            .Sum(x => x.DurationMinutes) / 25;
         
         WeekTomatoCountText.Text = $"{weeklyTomatoes} / 21";
         WeekTomatoProgressBar.Value = Math.Min(weeklyTomatoes, 21);
 
         // History list (last 10)
-        var recent = _config.PomodoroHistory.Where(x => x.IsCompleted && x.CompletedAt.HasValue).OrderByDescending(x => x.CompletedAt ?? DateTime.MinValue).Take(10).ToList();
+        var recent = historySnapshot
+            .Where(x => x.IsCompleted && x.CompletedAt.HasValue)
+            .OrderByDescending(x => x.CompletedAt!.Value)
+            .Take(10).ToList();
         PomoHistoryList.ItemsSource = recent;
     }
 
@@ -228,9 +238,9 @@ public partial class DashboardWindow : Window
         // Don't start drag on toggle switch area
         while (element != null)
         {
-            if (element is Border b && b.Tag is DashboardZoneItem item)
+            if (element is Border b && b.Tag is DashboardZoneItem && b.CornerRadius == new CornerRadius(9))
             {
-                // This is the toggle — skip
+                // This is the toggle switch (CornerRadius=9) — skip drag
                 _dragItem = null; return;
             }
             if (element is FrameworkElement fe && fe.DataContext is DashboardZoneItem foundItem)

@@ -41,8 +41,17 @@ public static class ConfigService
 
             return config;
         }
-        catch
+        catch (Exception ex)
         {
+            // Backup the corrupted config so user data isn't silently lost
+            try
+            {
+                string corruptPath = ConfigPath + $".corrupt_{DateTime.Now:yyyyMMdd_HHmmss}";
+                File.Copy(ConfigPath, corruptPath, overwrite: true);
+                System.Diagnostics.Debug.WriteLine($"Config corrupted, backed up to: {corruptPath}. Error: {ex.Message}");
+            }
+            catch { /* backup failed, proceed anyway */ }
+
             return CreateDefault();
         }
     }
