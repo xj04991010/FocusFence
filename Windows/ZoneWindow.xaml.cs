@@ -708,12 +708,19 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             ApplyAccentColor(_config.AccentColor);
             StickyNoteArea.Visibility = _config.ShowMemo ? Visibility.Visible : Visibility.Collapsed;
 
-            if (_currentPath != (_config.FolderPath ?? ""))
+            // Only reset navigation if the zone's root folder actually changed.
+            // Don't reset when user is just browsing inside a subfolder.
+            string configRoot = _config.FolderPath ?? "";
+            bool rootChanged = !string.Equals(_currentPath, configRoot, StringComparison.OrdinalIgnoreCase)
+                && !_currentPath.StartsWith(configRoot + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            if (rootChanged)
             {
-                _currentPath = _config.FolderPath ?? "";
+                _currentPath = configRoot;
+                _navStack.Clear();
                 StopWatcher();
                 RefreshFiles();
                 StartWatcher();
+                UpdateBreadcrumb();
             }
 
             if (ZoneMemo.Text != _config.Memo)

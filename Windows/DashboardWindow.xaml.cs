@@ -16,6 +16,7 @@ public partial class DashboardWindow : Window
     private readonly AppConfig _config;
     private readonly ObservableCollection<DashboardZoneItem> _zoneItems = [];
     private int _selectedPomoDuration = 25; // Default to 25
+    private bool _suppressConfigChanged; // Prevent spurious ConfigurationChanged during RefreshData
 
     public event Action? ConfigurationChanged;
     public event Action<ZoneConfig>? RequestCreateZone;
@@ -121,34 +122,42 @@ public partial class DashboardWindow : Window
 
     public void RefreshData()
     {
-        // Refresh Zones
-        _zoneItems.Clear();
-
-        foreach (var zc in _config.Zones)
+        _suppressConfigChanged = true;
+        try
         {
-            int count = 0;
-            if (!string.IsNullOrEmpty(zc.FolderPath) && Directory.Exists(zc.FolderPath))
-                count = Directory.GetFileSystemEntries(zc.FolderPath).Length;
+            // Refresh Zones
+            _zoneItems.Clear();
 
-            _zoneItems.Add(new DashboardZoneItem(zc, count, () => ConfigurationChanged?.Invoke()));
-        }
-
-        if (DownloadTargetCombo != null)
-        {
-            DownloadTargetCombo.ItemsSource = null;
-            DownloadTargetCombo.ItemsSource = _config.Zones;
-            if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
+            foreach (var zc in _config.Zones)
             {
-                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+                int count = 0;
+                if (!string.IsNullOrEmpty(zc.FolderPath) && Directory.Exists(zc.FolderPath))
+                    count = Directory.GetFileSystemEntries(zc.FolderPath).Length;
+
+                _zoneItems.Add(new DashboardZoneItem(zc, count, () => ConfigurationChanged?.Invoke()));
             }
+
+            if (DownloadTargetCombo != null)
+            {
+                DownloadTargetCombo.ItemsSource = null;
+                DownloadTargetCombo.ItemsSource = _config.Zones;
+                if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
+                {
+                    DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+                }
+            }
+
+            // Refresh Pomodoro stats & combobox
+            RefreshPomodoroData();
+
+            // Refresh Global Notes
+            GlobalNotesList.ItemsSource = null;
+            GlobalNotesList.ItemsSource = _config.Zones.Where(z => z.ShowMemo).ToList();
         }
-
-        // Refresh Pomodoro stats & combobox
-        RefreshPomodoroData();
-
-        // Refresh Global Notes
-        GlobalNotesList.ItemsSource = null;
-        GlobalNotesList.ItemsSource = _config.Zones.Where(z => z.ShowMemo).ToList();
+        finally
+        {
+            _suppressConfigChanged = false;
+        }
     }
 
     private void RefreshPomodoroData()
@@ -596,6 +605,7 @@ public partial class DashboardWindow : Window
 
     private void DownloadTargetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressConfigChanged) return;
         if (DownloadTargetCombo?.SelectedValue is string zoneId)
         {
             _config.DownloadTargetZoneId = zoneId;
