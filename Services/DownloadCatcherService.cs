@@ -69,54 +69,71 @@ public sealed class DownloadCatcherService : IDisposable
         }
 
         // Fire and forget a task to handle the file moving
-        // We delay slightly to ensure Chrome/Edge has fully released the file lock
+        // We delay slightly and poll to ensure the file is completely downloaded and unlocked
         Task.Run(async () =>
         {
-            await Task.Delay(500); // Wait for browser to release lock after rename
+            await Task.Delay(500);
 
-            int retries = 5;
-            while (retries > 0)
+            int maxRetries = 7200; // Up to 2 hours limit (7200 seconds)
+            bool moved = false;
+
+            for (int i = 0; i < maxRetries; i++)
             {
                 try
                 {
-                    if (File.Exists(e.FullPath))
+                    var fi = new FileInfo(e.FullPath);
+                    fi.Refresh();
+                    
+                    // If file no longer exists, it might have been deleted or renamed by the browser
+                    if (!fi.Exists) 
+                        break; 
+
+                    // Skip 0-byte placeholders
+                    if (fi.Length == 0)
                     {
-                        string fileName = Path.GetFileName(e.FullPath);
-                        string destPath = Path.Combine(zone.FolderPath, fileName);
-
-                        // Avoid overwriting
-                        int counter = 2;
-                        string bn = Path.GetFileNameWithoutExtension(fileName);
-                        while (File.Exists(destPath))
-                        {
-                            destPath = Path.Combine(zone.FolderPath, $"{bn} ({counter++}){ext}");
-                        }
-
-                        File.Move(e.FullPath, destPath);
-                        
-                        // Show a subtle notification (optional)
-                        Application.Current?.Dispatcher.BeginInvoke(() =>
-                        {
-                            // Optional: notify the user through the dashboard or a toast
-                            Debug.WriteLine($"Auto-routed {fileName} to active zone {zone.Title}");
-                        });
+                        await Task.Delay(1000);
+                        continue;
                     }
+
+                    // Test if file is fully unlocked by attempting to open it exclusively
+                    using (var stream = fi.Open(FileMode.Open, FileAccess.Read, FileShare.None))
+                    {
+                        stream.Close();
+                    }
+
+                    // If we successfully opened it exclusively, it is ready to move.
+                    string fileName = Path.GetFileName(e.FullPath);
+                    string destPath = Path.Combine(zone.FolderPath, fileName);
+
+                    int counter = 2;
+                    string bn = Path.GetFileNameWithoutExtension(fileName);
+                    while (File.Exists(destPath))
+                    {
+                        destPath = Path.Combine(zone.FolderPath, $"{bn} ({counter++}){ext}");
+                    }
+
+                    File.Move(e.FullPath, destPath);
+                    moved = true;
+                    
+                    Application.Current?.Dispatcher.BeginInvoke(() =>
+                    {
+                        Debug.WriteLine($"Auto-routed {fileName} to active zone {zone.Title}");
+                    });
                     break; // Success
                 }
                 catch (IOException)
                 {
-                    // File might still be locked
-                    retries--;
-                    await Task.Delay(1000);
+                    // File still locked (downloading/writing), wait and try again
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error routing download {e.FullPath}: {ex.Message}");
                     break;
                 }
+
+                await Task.Delay(1000);
             }
 
-            // Cleanup debounce cache after a while
             await Task.Delay(5000);
             lock (_recentProcessed)
             {
