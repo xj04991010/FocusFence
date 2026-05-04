@@ -150,21 +150,49 @@
             </Grid>
             <Grid x:Name="NotesContainer" Grid.Row="2" Grid.RowSpan="2" Visibility="Collapsed" Margin="10">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <Border Grid.Row="0" Margin="20,15,20,10" Background="{StaticResource Surface1Brush}" CornerRadius="12" Padding="12">
-                <StackPanel>
-                    <TextBlock Text="全域設定" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <CheckBox x:Name="AutoRouteDownloadsCheck" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" VerticalAlignment="Center" Cursor="Hand" Checked="AutoRouteDownloads_Checked" Unchecked="AutoRouteDownloads_Checked">
-                        <StackPanel Orientation="Horizontal" Margin="4,0,0,0">
-                            <TextBlock Text="📥 自動捕獲下載的圖片/影片到目標框框"/>
-                        </StackPanel>
-                    </CheckBox>
-                    <TextBlock Text="當此功能開啟時，新的下載素材會自動被移動到您選擇的目標框框中。" Foreground="{StaticResource TextTertiaryBrush}" FontSize="11" Margin="24,8,0,0" TextWrapping="Wrap"/>
-                    <StackPanel x:Name="DownloadTargetPanel" Orientation="Horizontal" Margin="24,8,0,0" Visibility="Collapsed">
-                        <TextBlock Text="目標框框：" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
-                        <ComboBox x:Name="DownloadTargetCombo" Width="150" Margin="8,0,0,0" DisplayMemberPath="Title" SelectedValuePath="Id" SelectionChanged="DownloadTargetCombo_SelectionChanged" Background="{StaticResource Surface2Brush}" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="0" Padding="8,4" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+                <Border Grid.Row="0" Margin="20,15,20,10" Background="{StaticResource Surface1Brush}" BorderBrush="{StaticResource ZoneBorderBrush}" BorderThickness="1" CornerRadius="16" Padding="16" Effect="{StaticResource ShadowSoft}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+                            <TextBlock Text="⚙️ 全域設定" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </DockPanel>
+
+                        <Grid Grid.Row="1" Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Width="42" Height="42" CornerRadius="12" Background="{StaticResource Surface2Brush}" VerticalAlignment="Top" Margin="0,0,14,0" BorderBrush="{StaticResource SurfaceHoverBrush}" BorderThickness="1">
+                                <TextBlock Text="📥" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="自動捕獲下載的素材" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBlock Text="開啟後，新下載的圖片與影片將自動移動到下方指定的目標框框中。" Foreground="{StaticResource TextTertiaryBrush}" FontSize="11.5" TextWrapping="Wrap" LineHeight="16"/>
+                            </StackPanel>
+
+                            <CheckBox x:Name="AutoRouteDownloadsCheck" Grid.Column="2" VerticalAlignment="Center" Cursor="Hand" Checked="AutoRouteDownloads_Checked" Unchecked="AutoRouteDownloads_Checked">
+                                <CheckBox.LayoutTransform>
+                                    <ScaleTransform ScaleX="1.5" ScaleY="1.5"/>
+                                </CheckBox.LayoutTransform>
+                            </CheckBox>
+                        </Grid>
+
+                        <Border x:Name="DownloadTargetPanel" Grid.Row="2" Background="{StaticResource Surface2Brush}" CornerRadius="10" Padding="14,10" Margin="0,12,0,0" Visibility="Collapsed" BorderBrush="{StaticResource SurfaceHoverBrush}" BorderThickness="1">
+                            <DockPanel>
+                                <TextBlock Text="🎯 目標框框：" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12.5"/>
+                                <ComboBox x:Name="DownloadTargetCombo" Width="180" HorizontalAlignment="Right" DockPanel.Dock="Right" DisplayMemberPath="Title" SelectedValuePath="Id" SelectionChanged="DownloadTargetCombo_SelectionChanged" Background="White" Foreground="Black" Padding="8,4" VerticalAlignment="Center" Cursor="Hand" Opacity="0.9"/>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Border>
 
             <ScrollViewer Grid.Row="1" Margin="0,0,0,0" VerticalScrollBarVisibility="Auto">
                 <ItemsControl x:Name="GlobalNotesList">
