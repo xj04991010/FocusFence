@@ -13,22 +13,38 @@ public class UndoRecord
 public static class UndoService
 {
     private static readonly Stack<List<UndoRecord>> _history = new();
+    private static readonly object _lock = new();
 
     public static event Action? UndoExecuted;
 
     public static void RecordMove(List<UndoRecord> records)
     {
         if (records.Count > 0)
-            _history.Push(records);
+        {
+            lock (_lock)
+            {
+                _history.Push(records);
+            }
+        }
     }
     
-    public static bool CanUndo => _history.Count > 0;
+    public static bool CanUndo 
+    {
+        get
+        {
+            lock (_lock) return _history.Count > 0;
+        }
+    }
     
     public static int Undo()
     {
-        if (_history.Count == 0) return 0;
+        List<UndoRecord>? batch = null;
+        lock (_lock)
+        {
+            if (_history.Count == 0) return 0;
+            batch = _history.Pop();
+        }
         
-        var batch = _history.Pop();
         int count = 0;
         foreach (var r in batch)
         {

@@ -97,11 +97,18 @@ public static class ConfigService
             string dest = Path.Combine(SnapshotDir, $"snapshot_{stamp}.json");
             File.Copy(ConfigPath, dest, overwrite: true);
 
-            // Keep only last 7
+            // Keep only last 7 (sort by parsed date from filename, not alphabetical string sort)
             var files = Directory.GetFiles(SnapshotDir, "snapshot_*.json")
-                .OrderByDescending(f => f)
+                .Select(f => new 
+                { 
+                    Path = f, 
+                    Date = ParseSnapshotDate(Path.GetFileNameWithoutExtension(f)) 
+                })
+                .OrderByDescending(x => x.Date)
                 .Skip(7)
+                .Select(x => x.Path)
                 .ToList();
+
             foreach (var old in files)
             {
                 try { File.Delete(old); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Snapshot delete failed: {ex.Message}"); }
@@ -110,12 +117,30 @@ public static class ConfigService
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Snapshot rotation failed: {ex.Message}"); }
     }
 
+    private static DateTime ParseSnapshotDate(string filename)
+    {
+        // filename format: snapshot_yyyyMMdd_HHmmss
+        try
+        {
+            if (filename.StartsWith("snapshot_") && filename.Length >= 24)
+            {
+                string datePart = filename.Substring(9, 15);
+                if (DateTime.TryParseExact(datePart, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out DateTime dt))
+                    return dt;
+            }
+        }
+        catch { }
+        return DateTime.MinValue;
+    }
+
     /// <summary>
     /// Migrates older config schemas to v3.0.
     /// Adds missing properties with sensible defaults.
     /// </summary>
     private static void MigrateToV3(AppConfig config)
     {
+        Directory.CreateDirectory(ConfigDir); // Ensure config directory exists before saving
+
         config.SchemaVersion = "3.0";
 
         foreach (var zone in config.Zones)

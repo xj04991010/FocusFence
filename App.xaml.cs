@@ -19,9 +19,6 @@ namespace FocusFence;
 
 public partial class App : Application
 {
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool DestroyIcon(IntPtr hIcon);
-
     // Desktop double-click hook
     [DllImport("user32.dll")]
     private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc callback, IntPtr hInstance, uint threadId);
@@ -40,21 +37,20 @@ public partial class App : Application
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDBLCLK = 0x0203;
 
-    private Forms.NotifyIcon _trayIcon = null!;
-    private readonly List<ZoneWindow> _zones = [];
+    private TrayService _trayService = null!;
+    private ZoneManagerService _zoneManager = null!;
     private AppConfig _config = null!;
     private DashboardWindow _dashboard = null!;
     private DispatcherTimer _autoSaveTimer = null!;
     private HotkeyService? _hotkeyService;
     private Window? _hotkeyWindow;
-    private bool _zonesVisible = true;
     private PomodoroService? _pomodoroService;
     private DormancyService? _dormancyService;
     private ContextLaunchService? _contextLaunchService;
     private DownloadCatcherService? _downloadCatcherService;
     private IntPtr _mouseHookId = IntPtr.Zero;
     private LowLevelMouseProc? _mouseHookProc; // prevent GC collection
-    private DateTime _lastDoubleClickTime = DateTime.MinValue; // debounce
+    private long _lastDoubleClickTicks = 0; // debounce (Thread-safe)
 
     private EventWaitHandle? _showDashboardEvent;
     private CancellationTokenSource? _appCts;
@@ -107,7 +103,16 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             LogCrash("DispatcherUnhandledException", args.Exception);
-            args.Handled = true; // prevent crash, keep running
+            
+            var r = FocusFenceDialog.ShowConfirm(
+                $"發生未預期的錯誤：\n{args.Exception.Message}\n\n為避免資料損毀，建議重新啟動應用程式。是否立即關閉？", 
+                "FocusFence 嚴重錯誤", destructive: true);
+                
+            if (r) 
+            {
+                Environment.Exit(1);
+            }
+            args.Handled = true; // Attempt to continue if user chose not to close
         };
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
@@ -140,12 +145,18 @@ public partial class App : Application
         _downloadCatcherService = new DownloadCatcherService(_config);
         _downloadCatcherService.Start();
 
+        _zoneManager = new ZoneManagerService(_config);
+        _zoneManager.RequestSave += ScheduleSave;
+        _zoneManager.RequestDashboardRefresh += () => _dashboard.RefreshData();
+        _zoneManager.RequestStartPomodoro += StartGlobalPomodoro;
+        _zoneManager.RequestContextLaunch += (zoneId) => _contextLaunchService?.LaunchContext(zoneId);
+
         // Create Dashboard
         _dashboard = new DashboardWindow(_config);
         _dashboard.ConfigurationChanged += OnConfigurationChanged;
-        _dashboard.RequestCreateZone += OnCreateZoneRequest;
-        _dashboard.RequestDeleteZone += OnDeleteZoneRequest;
-        _dashboard.RequestToggleZone += OnToggleZoneRequest;
+        _dashboard.RequestCreateZone += _zoneManager.OnCreateZoneRequest;
+        _dashboard.RequestDeleteZone += _zoneManager.OnDeleteZoneRequest;
+        _dashboard.RequestToggleZone += _zoneManager.OnToggleZoneRequest;
         _dashboard.RequestStartPomodoro += (zoneId, label, duration, volume) =>
         {
             _pomodoroService!.Start(zoneId, duration, label);
@@ -176,32 +187,24 @@ public partial class App : Application
             ClosePomodoroTimer();
             _dashboard.RefreshData();
         };
-        _dashboard.RequestSummonZone += (config) =>
-        {
-            var zone = _zones.FirstOrDefault(z => z.Config == config);
-            if (zone != null)
-            {
-                zone.ShowZone();
-                zone.Topmost = true;
-                zone.Activate();
-                // Reset topmost after a short delay (unless pinned)
-                if (!config.IsPinned)
-                {
-                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-                    timer.Tick += (_, _) => { timer.Stop(); zone.Topmost = false; };
-                    timer.Start();
-                }
-            }
-        };
-        _dashboard.RequestAutoArrange += AutoArrangeZones;
+        _dashboard.RequestSummonZone += _zoneManager.SummonZone;
+        _dashboard.RequestAutoArrange += () => _zoneManager.AutoArrangeZones(_dashboard);
 
         // Create initial zones
-        foreach (var zc in _config.Zones.ToList())
-        {
-            CreateZoneWindow(zc);
-        }
+        _zoneManager.InitializeInitialZones();
 
-        InitTrayIcon();
+        _trayService = new TrayService();
+        _trayService.RequestDashboard += () => { _dashboard.Show(); _dashboard.Activate(); };
+        _trayService.RequestToggleZones += _zoneManager.ToggleAllZones;
+        _trayService.RequestPomodoro += () => StartGlobalPomodoro(null);
+        _trayService.RequestGlobalMemo += ShowGlobalMemo;
+        _trayService.RequestSave += () =>
+        {
+            _zoneManager.SnapshotAllPositions();
+            ConfigService.Save(_config);
+            _autoSaveTimer.Stop();
+        };
+        _trayService.RequestExit += ExitApp;
         InitGlobalHotkeys();
         InitDesktopDoubleClickHook();
 
@@ -222,7 +225,7 @@ public partial class App : Application
     {
         Dispatcher.BeginInvoke(() =>
         {
-            var zone = _zones.FirstOrDefault(z => z.Config.Id == zoneId);
+            var zone = _zoneManager.GetZone(zoneId);
             zone?.UpdatePomodoroDisplay(remaining, total);
 
             if (_pomoTimerWin != null && _pomodoroService != null)
@@ -236,7 +239,7 @@ public partial class App : Application
     {
         Dispatcher.BeginInvoke(() =>
         {
-            var zone = _zones.FirstOrDefault(z => z.Config.Id == zoneId);
+            var zone = _zoneManager.GetZone(zoneId);
             zone?.OnPomodoroComplete();
 
             ClosePomodoroTimer();
@@ -260,7 +263,7 @@ public partial class App : Application
         if (string.IsNullOrEmpty(zoneId)) return;
         Dispatcher.BeginInvoke(() =>
         {
-            foreach (var zone in _zones)
+            foreach (var zone in _zoneManager.Zones)
             {
                 if (zone.Config.Id == zoneId)
                 {
@@ -310,7 +313,7 @@ public partial class App : Application
     {
         Dispatcher.BeginInvoke(() =>
         {
-            foreach (var zone in _zones)
+            foreach (var zone in _zoneManager.Zones)
             {
                 bool isActive = zone.Config.Id == zoneId;
                 zone.SetContextActive(isActive);
@@ -330,7 +333,7 @@ public partial class App : Application
     {
         Dispatcher.BeginInvoke(() =>
         {
-            foreach (var zone in _zones)
+            foreach (var zone in _zoneManager.Zones)
             {
                 zone.UpdateDormancyBadge();
 
@@ -371,13 +374,15 @@ public partial class App : Application
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 // Debounce: ignore if < 300 ms since last accepted click
-                if ((DateTime.UtcNow - _lastDoubleClickTime).TotalMilliseconds < 300) return;
+                long nowTicks = DateTime.UtcNow.Ticks;
+                long lastTicks = Interlocked.Read(ref _lastDoubleClickTicks);
+                if (TimeSpan.FromTicks(nowTicks - lastTicks).TotalMilliseconds < 300) return;
 
                 IntPtr hwndUnder = WindowFromPoint(px, py);
                 if (IsDesktopWindow(hwndUnder))
                 {
-                    _lastDoubleClickTime = DateTime.UtcNow;
-                    Application.Current?.Dispatcher.BeginInvoke(ToggleAllZones);
+                    Interlocked.Exchange(ref _lastDoubleClickTicks, nowTicks);
+                    Application.Current?.Dispatcher.BeginInvoke(_zoneManager.ToggleAllZones);
                 }
             });
         }
@@ -430,7 +435,7 @@ public partial class App : Application
         _hotkeyService = new HotkeyService();
         _hotkeyService.Attach(_hotkeyWindow);
         _hotkeyService.RegisterDefaults(
-            onToggleZones: ToggleAllZones,
+            onToggleZones: _zoneManager.ToggleAllZones,
             onShowDashboard: () => { _dashboard.Show(); _dashboard.Activate(); },
             onPrevDesktop: () => SwitchDesktopPage(-1),
             onNextDesktop: () => SwitchDesktopPage(1)
@@ -442,159 +447,19 @@ public partial class App : Application
         _config.ActiveDesktopPage += delta;
         if (_config.ActiveDesktopPage < 0) _config.ActiveDesktopPage = 0;
         
-        UpdateZoneVisibilityForPage();
+        _zoneManager.UpdateZoneVisibilityForPage();
         ScheduleSave();
-    }
-
-    private void UpdateZoneVisibilityForPage()
-    {
-        foreach (var zone in _zones)
-        {
-            if (!_zonesVisible)
-            {
-                zone.Visibility = Visibility.Hidden;
-                continue;
-            }
-
-            // Always show pinned zones, otherwise check page match
-            bool isOnPage = zone.Config.IsPinned || zone.Config.DesktopPage == _config.ActiveDesktopPage;
-            
-            if (isOnPage && zone.Config.IsVisible)
-                zone.ShowZone();
-            else
-                zone.Visibility = Visibility.Hidden;
-        }
-    }
-
-    /// <summary>
-    /// v3.0 Zen Mode upgrade: If there's an active context,
-    /// only hide non-active zones. Otherwise hide all.
-    /// </summary>
-    private void ToggleAllZones()
-    {
-        _zonesVisible = !_zonesVisible;
-
-        if (!_zonesVisible && HasActiveContext())
-        {
-            // Selective hide: only hide non-active context zones
-            foreach (var zone in _zones)
-            {
-                if (zone.Config.IsActiveContext)
-                {
-                    // Keep active context visible
-                    bool isOnPage = zone.Config.IsPinned || zone.Config.DesktopPage == _config.ActiveDesktopPage;
-                    if (isOnPage && zone.Config.IsVisible)
-                        zone.AnimateIn();
-                }
-                else
-                {
-                    zone.AnimateOut();
-                }
-            }
-        }
-        else
-        {
-            UpdateZoneVisibilityForPage();
-        }
-    }
-
-    private bool HasActiveContext()
-    {
-        return _config.Zones.Any(z => z.IsActiveContext);
-    }
-
-    private void CreateZoneWindow(ZoneConfig zc)
-    {
-        if (zc.Width < 100) zc.Width = 320;
-        if (zc.Height < 50) zc.Height = 280;
-
-        var zone = new ZoneWindow(zc);
-        _zones.Add(zone);
-        
-        zone.ZoneChanged += () =>
-        {
-            ScheduleSave();
-            _dashboard.RefreshData();
-        };
-        zone.ZoneCloseRequested += (z) => 
-        {
-            z.HideZone();
-            _dashboard.RefreshData();
-            ScheduleSave();
-        };
-
-        // Wire up Pomodoro request
-        zone.PomodoroStartRequested += (zoneId) => StartGlobalPomodoro(zoneId);
-
-        // Wire up Context Launch request
-        zone.ContextLaunchRequested += (zoneId) =>
-        {
-            _contextLaunchService?.LaunchContext(zoneId);
-        };
-
-        bool isOnPage = zc.IsPinned || zc.DesktopPage == _config.ActiveDesktopPage;
-        if (zc.IsVisible && isOnPage)
-        {
-            zone.Show();
-        }
-    }
-
-    private void OnCreateZoneRequest(ZoneConfig newConfig)
-    {
-        _config.Zones.Add(newConfig);
-        
-        // Ensure folder exists
-        if (!string.IsNullOrEmpty(newConfig.FolderPath))
-            Directory.CreateDirectory(newConfig.FolderPath);
-
-        CreateZoneWindow(newConfig);
-        
-        // Bring the newly created zone to the front
-        var newZone = _zones.LastOrDefault(z => z.Config == newConfig);
-        if (newZone != null)
-        {
-            newZone.Activate();
-            newZone.Topmost = true;
-            newZone.Topmost = false;
-        }
-
-        ScheduleSave();
-    }
-
-    private void OnDeleteZoneRequest(ZoneConfig config)
-    {
-        _config.Zones.Remove(config);
-        var zone = _zones.FirstOrDefault(z => z.Config == config);
-        if (zone != null)
-        {
-            _zones.Remove(zone);
-            zone.Close();
-        }
-        ScheduleSave();
-    }
-
-    private void OnToggleZoneRequest(ZoneConfig config, bool isVisible)
-    {
-        var zone = _zones.FirstOrDefault(z => z.Config == config);
-        if (zone != null)
-        {
-            if (isVisible) zone.ShowZone();
-            else zone.HideZone();
-        }
     }
 
     private void OnConfigurationChanged()
     {
         ScheduleSave();
-        foreach (var zone in _zones)
-        {
-            zone.SyncFromConfig();
-        }
+        _zoneManager.SyncFromConfig();
     }
 
     private void ScheduleSave()
     {
-        foreach (var zone in _zones) zone.SnapshotPosition();
+        _zoneManager.SnapshotAllPositions();
         _autoSaveTimer.Stop();
         _autoSaveTimer.Start();
     }
@@ -670,145 +535,6 @@ public partial class App : Application
         _globalMemoWindow.Show();
     }
 
-    // ── System Tray ──────────────────────────────────────────────────
-
-    private void InitTrayIcon()
-    {
-        _trayIcon = new Forms.NotifyIcon
-        {
-            Icon = CreateCoolIcon(),
-            Text = "FocusFence",
-            Visible = true
-        };
-
-        _trayIcon.DoubleClick += (_, _) => _dashboard.Show();
-
-        InitWpfTrayMenu();
-    }
-
-    private System.Windows.Controls.ContextMenu _wpfTrayMenu = null!;
-
-    private void InitWpfTrayMenu()
-    {
-        _wpfTrayMenu = new System.Windows.Controls.ContextMenu();
-
-        var dashItem = new System.Windows.Controls.MenuItem { Header = "控制台 (Dashboard)" };
-        dashItem.Click += (_, _) => _dashboard.Show();
-
-        var toggleItem = new System.Windows.Controls.MenuItem { Header = "顯示/隱藏所有框框 (Ctrl+Alt+F)" };
-        toggleItem.Click += (_, _) => ToggleAllZones();
-
-        var pomoItem = new System.Windows.Controls.MenuItem { Header = "🍅 番茄鐘 (Pomodoro)" };
-        pomoItem.Click += (_, _) => Dispatcher.BeginInvoke(() => StartGlobalPomodoro(null));
-
-        var memoItem = new System.Windows.Controls.MenuItem { Header = "📝 總便利貼 (Global Memo)" };
-        memoItem.Click += (_, _) => Dispatcher.BeginInvoke(ShowGlobalMemo);
-
-        var saveItem = new System.Windows.Controls.MenuItem { Header = "強制儲存 (Force Save)" };
-        saveItem.Click += (_, _) =>
-        {
-            foreach (var zone in _zones) zone.SnapshotPosition();
-            ConfigService.Save(_config);
-            _autoSaveTimer.Stop();
-        };
-
-        var startupItem = new System.Windows.Controls.MenuItem 
-        { 
-            Header = "開機自動啟動 (Startup)",
-            IsCheckable = true,
-            IsChecked = StartupService.IsEnabled()
-        };
-        startupItem.Click += (_, _) => StartupService.SetEnabled(startupItem.IsChecked);
-
-        var publishItem = new System.Windows.Controls.MenuItem { Header = "🛠️ 打包並固定到工具列 (Build & Pin)" };
-        publishItem.Click += async (_, _) => 
-        {
-            MessageBox.Show("正在進行正式打包發佈...\n這將產出一個「單一檔案、免安裝」的高效能版本。\n\n完成後會自動開啟資料夾，請將 FocusFence.exe 拖曳至您的工具列固定即可。", "FocusFence Build", MessageBoxButton.OK, MessageBoxImage.Information);
-            try {
-                string publishCmd = "dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:IncludeNativeLibrariesForSelfContained=true";
-                await Task.Run(() => {
-                    var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
-                        FileName = "cmd.exe",
-                        Arguments = $"/c {publishCmd} & explorer bin\\Release\\net9.0-windows\\win-x64\\publish",
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    });
-                    process?.WaitForExit();
-                });
-            } catch (Exception ex) {
-                MessageBox.Show($"打包失敗：{ex.Message}");
-            }
-        };
-
-        var exitItem = new System.Windows.Controls.MenuItem { Header = "結束 (Exit)", Foreground = System.Windows.Media.Brushes.IndianRed };
-        exitItem.Click += (_, _) => ExitApp();
-
-        _wpfTrayMenu.Items.Add(dashItem);
-        _wpfTrayMenu.Items.Add(toggleItem);
-        _wpfTrayMenu.Items.Add(new System.Windows.Controls.Separator());
-        _wpfTrayMenu.Items.Add(pomoItem);
-        _wpfTrayMenu.Items.Add(memoItem);
-        _wpfTrayMenu.Items.Add(new System.Windows.Controls.Separator());
-        _wpfTrayMenu.Items.Add(saveItem);
-        _wpfTrayMenu.Items.Add(startupItem);
-        _wpfTrayMenu.Items.Add(publishItem);
-        _wpfTrayMenu.Items.Add(new System.Windows.Controls.Separator());
-        _wpfTrayMenu.Items.Add(exitItem);
-
-        _trayIcon.MouseUp += (s, e) =>
-        {
-            if (e.Button == Forms.MouseButtons.Right)
-            {
-                var w = new Window 
-                { 
-                    WindowStyle = WindowStyle.None, AllowsTransparency = true, 
-                    Background = System.Windows.Media.Brushes.Transparent, 
-                    Width = 0, Height = 0, ShowInTaskbar = false, Topmost = true,
-                    WindowStartupLocation = WindowStartupLocation.Manual,
-                    Left = System.Windows.Forms.Cursor.Position.X,
-                    Top = System.Windows.Forms.Cursor.Position.Y
-                };
-                w.Show();
-                w.Activate();
-                
-                _wpfTrayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                _wpfTrayMenu.IsOpen = true;
-                
-                RoutedEventHandler? closedHandler = null;
-                closedHandler = (s2, e2) => 
-                {
-                    _wpfTrayMenu.Closed -= closedHandler;
-                    w.Close();
-                };
-                _wpfTrayMenu.Closed += closedHandler;
-            }
-        };
-    }
-
-    private Icon CreateCoolIcon()
-    {
-        using var bmp = new Bitmap(32, 32);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        // Draw outer thick frame (Gold)
-        using var outerPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(200, 198, 156, 109), 4);
-        g.DrawRectangle(outerPen, 4, 4, 24, 24);
-
-        // Draw inner dark block
-        using var innerBrush = new SolidBrush(System.Drawing.Color.FromArgb(255, 30, 30, 40));
-        g.FillRectangle(innerBrush, 8, 8, 16, 16);
-
-        // Draw a neat diagonal slash to represent "focus / fencing"
-        using var slashPen = new System.Drawing.Pen(System.Drawing.Color.White, 3);
-        g.DrawLine(slashPen, 8, 24, 24, 8);
-
-        IntPtr hIcon = bmp.GetHicon();
-        Icon icon = (Icon)Icon.FromHandle(hIcon).Clone();
-        DestroyIcon(hIcon);
-        return icon;
-    }
-
     private void ExitApp()
     {
         _autoSaveTimer.Stop();
@@ -827,13 +553,12 @@ public partial class App : Application
         _dormancyService?.Dispose();
         if (_mouseHookId != IntPtr.Zero) UnhookWindowsHookEx(_mouseHookId);
 
-        foreach (var zone in _zones) zone.SnapshotPosition();
+        _zoneManager.SnapshotAllPositions();
         ConfigService.Save(_config);
 
-        _trayIcon.Visible = false;
-        _trayIcon.Dispose();
+        _trayService?.Dispose();
 
-        foreach (var zone in _zones) zone.Close();
+        _zoneManager.CloseAll();
         _dashboard.Close();
         _hotkeyWindow?.Close();
         _showDashboardEvent?.Dispose();
@@ -844,73 +569,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _trayIcon?.Dispose();
+        _trayService?.Dispose();
         base.OnExit(e);
-    }
-
-    private void AutoArrangeZones()
-    {
-        var visibleZones = _zones
-            .Where(z => z.IsVisible && z.Config.IsVisible)
-            .OrderBy(z => _config.Zones.IndexOf(z.Config))
-            .ToList();
-        if (visibleZones.Count == 0) return;
-
-        var handle = new System.Windows.Interop.WindowInteropHelper(_dashboard).Handle;
-        var screen = System.Windows.Forms.Screen.FromHandle(handle);
-
-        // WPF uses device-independent pixels, so we might need DPI scaling for perfection,
-        // but since we are just putting them on screen without heavy exactness, Form bounds are close enough.
-        // For a more accurate approach using WPF visual presentation source:
-        var source = System.Windows.PresentationSource.FromVisual(_dashboard);
-        double scaleX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-        double scaleY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
-
-        double screenWidth = screen.WorkingArea.Width / scaleX;
-        double screenHeight = screen.WorkingArea.Height / scaleY;
-        
-        double gap = 24;
-        double startX = (screen.WorkingArea.Left / scaleX) + gap;
-        double startY = (screen.WorkingArea.Top / scaleY) + gap;
-        
-        double currentX = startX;
-        double currentY = startY;
-        double rowMaxHeight = 0;
-
-        foreach (var zone in visibleZones)
-        {
-            // Simple flow layout
-            if (currentX + zone.Width > screenWidth && currentX > startX)
-            {
-                currentX = startX;
-                currentY += rowMaxHeight + gap;
-                rowMaxHeight = 0;
-            }
-
-            var leftAnim = new System.Windows.Media.Animation.DoubleAnimation
-            {
-                To = currentX,
-                Duration = TimeSpan.FromMilliseconds(400),
-                EasingFunction = new System.Windows.Media.Animation.QuinticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-            };
-            var topAnim = new System.Windows.Media.Animation.DoubleAnimation
-            {
-                To = currentY,
-                Duration = TimeSpan.FromMilliseconds(400),
-                EasingFunction = new System.Windows.Media.Animation.QuinticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-            };
-
-            zone.BeginAnimation(Window.LeftProperty, leftAnim);
-            zone.BeginAnimation(Window.TopProperty, topAnim);
-
-            zone.Config.X = currentX;
-            zone.Config.Y = currentY;
-
-            currentX += zone.Width + gap;
-            if (zone.Height > rowMaxHeight) rowMaxHeight = zone.Height;
-        }
-        
-        ConfigService.Save(_config);
     }
 
     private static void LogCrash(string source, Exception? ex)

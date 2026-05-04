@@ -23,8 +23,8 @@ public sealed class PomodoroService : IDisposable
     private DateTime? _targetEndTime;
     private int _pausedRemainingSeconds;
     
-    // Limits concurrent file writes to 1 thread safely
-    private static readonly SemaphoreSlim _logSemaphore = new(1, 1);
+    // Limits concurrent file writes to 1 thread safely per instance
+    private readonly SemaphoreSlim _logSemaphore = new(1, 1);
 
     /// <summary>Fired every second with (zoneId, remainingSeconds, totalSeconds).</summary>
     public event Action<string, int, int>? OnTick;
@@ -116,7 +116,6 @@ public sealed class PomodoroService : IDisposable
     public void Resume()
     {
         var state = _activeZone?.Pomodoro ?? _globalState;
-        if (_pausedRemainingSeconds <= 0) return;
         
         state.IsRunning = true;
         _targetEndTime = DateTime.UtcNow.AddSeconds(_pausedRemainingSeconds);
@@ -128,6 +127,12 @@ public sealed class PomodoroService : IDisposable
             _timer.Tick += (_, _) => Tick();
         }
         _timer.Start();
+
+        // If paused exactly at 0 seconds, trigger completion immediately
+        if (_pausedRemainingSeconds <= 0)
+        {
+            Tick();
+        }
     }
 
     private void Tick()
@@ -215,9 +220,9 @@ public sealed class PomodoroService : IDisposable
     }
 
     /// <summary>
-    /// Read the Pomodoro log and return weekly summary per zone.
+    /// Read the Pomodoro log and return weekly summary per zone asynchronously.
     /// </summary>
-    public static Dictionary<string, int> GetWeeklySummary()
+    public static async Task<Dictionary<string, int>> GetWeeklySummaryAsync()
     {
         var result = new Dictionary<string, int>();
         try
@@ -229,7 +234,8 @@ public sealed class PomodoroService : IDisposable
             if (!File.Exists(logPath)) return result;
 
             var weekAgo = DateTime.Now.AddDays(-7).ToString("yyyy-MM-dd");
-            foreach (string line in File.ReadAllLines(logPath))
+            var lines = await File.ReadAllLinesAsync(logPath);
+            foreach (string line in lines)
             {
                 try
                 {
