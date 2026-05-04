@@ -735,6 +735,8 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
 
     public void RefreshFiles()
     {
+        if (_files.Any(f => f.IsEditing)) return;
+
         _files.Clear();
         if (string.IsNullOrEmpty(_currentPath) || !Directory.Exists(_currentPath))
         {
@@ -951,7 +953,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             // Track interaction for dormancy
             _config.LastInteractedAt = DateTime.Now;
             try { Process.Start(new ProcessStartInfo { FileName = file.FullPath, UseShellExecute = true }); }
-            catch (Exception ex) { MessageBox.Show($"無法開啟：{ex.Message}", "FocusFence"); }
+            catch (Exception ex) { FocusFenceDialog.ShowMessage($"無法開啟：{ex.Message}", "FocusFence", true); }
         }
     }
 
@@ -1030,7 +1032,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 {
                     _config.LastInteractedAt = DateTime.Now;
                     try { Process.Start(new ProcessStartInfo { FileName = dblClickFile.FullPath, UseShellExecute = true }); }
-                    catch (Exception ex) { MessageBox.Show($"無法開啟：{ex.Message}", "FocusFence"); }
+                    catch (Exception ex) { FocusFenceDialog.ShowMessage($"無法開啟：{ex.Message}", "FocusFence", true); }
                 }
             }
             e.Handled = true;
@@ -1273,7 +1275,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 
                 undoRecords.Add(new FocusFence.Services.UndoRecord { OriginalSource = src, NewDestination = dest });
             }
-            catch (Exception ex) { MessageBox.Show($"無法移動：{ex.Message}", "FocusFence"); }
+            catch (Exception ex) { FocusFenceDialog.ShowMessage($"無法移動：{ex.Message}", "FocusFence", true); }
         }
         FocusFence.Services.UndoService.RecordMove(undoRecords);
         RefreshFiles();
@@ -1335,9 +1337,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     {
         var items = FileListBox.SelectedItems.Cast<FileItem>().ToList();
         if (items.Count == 0) return;
-        var r = MessageBox.Show($"確定要將 {items.Count} 個項目移至回收筒？", "FocusFence",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (r != MessageBoxResult.Yes) return;
+        if (!FocusFenceDialog.ShowConfirm($"確定要將 {items.Count} 個項目移至回收筒？", "FocusFence", destructive: true)) return;
         foreach (var f in items)
         {
             try
@@ -1375,7 +1375,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 }
             }), DispatcherPriority.Loaded);
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message); }
+        catch (Exception ex) { FocusFenceDialog.ShowMessage(ex.Message, "FocusFence", true); }
     }
 
     private void Context_NewTextFile(object s, RoutedEventArgs e)
@@ -1401,10 +1401,85 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 }
             }), DispatcherPriority.Loaded);
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message); }
+        catch (Exception ex) { FocusFenceDialog.ShowMessage(ex.Message, "FocusFence", true); }
     }
 
-    // ── File Extraction ───────────────────────────────────────────────
+    // ── Video Consolidation ─────────────────────────────────────────────
+
+    private static readonly HashSet<string> VideoExtensions =
+        [".mp4", ".mov", ".avi", ".mkv", ".webm", ".ts", ".flv", ".wmv", ".m4v", ".mpg", ".mpeg"];
+
+    private async void Context_ConsolidateVideos(object s, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_currentPath) || !Directory.Exists(_currentPath))
+        {
+            FocusFenceDialog.ShowMessage("目前沒有有效的資料夾路徑。");
+            return;
+        }
+
+        // Recursively find all video files in subdirectories (NOT the current directory itself)
+        var subDirs = Directory.GetDirectories(_currentPath, "*", System.IO.SearchOption.AllDirectories);
+        var videoFiles = new List<string>();
+        foreach (var dir in subDirs)
+        {
+            foreach (var file in Directory.GetFiles(dir))
+            {
+                string ext = System.IO.Path.GetExtension(file).ToLowerInvariant();
+                if (VideoExtensions.Contains(ext))
+                    videoFiles.Add(file);
+            }
+        }
+
+        if (videoFiles.Count == 0)
+        {
+            FocusFenceDialog.ShowMessage("子資料夾中沒有找到任何影片檔案。");
+            return;
+        }
+
+        if (!FocusFenceDialog.ShowConfirm(
+            $"在子資料夾中找到 {videoFiles.Count} 個影片檔案。\n確定要全部移動到「{System.IO.Path.GetFileName(_currentPath)}」嗎？",
+            "FocusFence — 整理影片")) return;
+
+        int moved = 0;
+        int failed = 0;
+        var errors = new List<string>();
+
+        await Task.Run(() =>
+        {
+            foreach (var srcPath in videoFiles)
+            {
+                try
+                {
+                    string fileName = System.IO.Path.GetFileName(srcPath);
+                    string destPath = System.IO.Path.Combine(_currentPath, fileName);
+
+                    // Handle name collisions
+                    int c = 2;
+                    string baseName = System.IO.Path.GetFileNameWithoutExtension(fileName);
+                    string ext = System.IO.Path.GetExtension(fileName);
+                    while (File.Exists(destPath))
+                        destPath = System.IO.Path.Combine(_currentPath, $"{baseName} ({c++}){ext}");
+
+                    File.Move(srcPath, destPath);
+                    moved++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    errors.Add($"{System.IO.Path.GetFileName(srcPath)}: {ex.Message}");
+                }
+            }
+        });
+
+        RefreshFiles();
+
+        string resultMsg = $"已移動 {moved} 個影片到此資料夾。";
+        if (failed > 0)
+            resultMsg += $"\n失敗 {failed} 個：\n" + string.Join("\n", errors.Take(5));
+        FocusFenceDialog.ShowMessage(resultMsg, "FocusFence — 整理完成", failed > 0);
+    }
+
+    // ── File Extraction (Async) ──────────────────────────────────────
 
     private static readonly HashSet<string> ArchiveExtensions = 
         [".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz", ".bz2", ".xz"];
@@ -1416,47 +1491,66 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
         return ArchiveExtensions.Contains(ext);
     }
 
-    private void Context_Extract(object s, RoutedEventArgs e)
+    private async void Context_Extract(object s, RoutedEventArgs e)
     {
         var items = FileListBox.SelectedItems.Cast<FileItem>().Where(IsArchiveFile).ToList();
         if (items.Count == 0)
         {
-            MessageBox.Show("請選擇壓縮檔案（.zip, .rar, .7z 等）", "FocusFence");
+            FocusFenceDialog.ShowMessage("請選擇壓縮檔案（.zip, .rar, .7z 等）");
             return;
         }
 
+        // Pre-resolve tool paths on the UI thread
+        string? externalToolPath = null;
+        bool needsExternalTool = items.Any(f =>
+        {
+            string ext = System.IO.Path.GetExtension(f.FullPath).ToLowerInvariant();
+            return ext is ".7z" or ".rar";
+        });
+        if (needsExternalTool)
+        {
+            externalToolPath = Find7zOrWinRAR();
+        }
+
+        // Prepare extraction jobs (capture paths before going async)
+        var jobs = new List<(string FilePath, string FileName, string Ext, string ExtractDir)>();
         foreach (var file in items)
         {
-            try
+            string ext = System.IO.Path.GetExtension(file.FullPath).ToLowerInvariant();
+            string baseName = System.IO.Path.GetFileNameWithoutExtension(file.FullPath);
+
+            // Handle .tar.gz / .tgz naming
+            if (ext == ".gz" && file.FullPath.ToLowerInvariant().EndsWith(".tar.gz"))
+                baseName = System.IO.Path.GetFileNameWithoutExtension(baseName);
+
+            string extractDir = System.IO.Path.Combine(_currentPath, baseName);
+            int counter = 2;
+            while (Directory.Exists(extractDir))
+                extractDir = System.IO.Path.Combine(_currentPath, $"{baseName} ({counter++})");
+
+            jobs.Add((file.FullPath, file.FileName, ext, extractDir));
+        }
+
+        var errors = new List<string>();
+
+        // Run all extraction on a background thread
+        await Task.Run(() =>
+        {
+            foreach (var (filePath, fileName, ext, extractDir) in jobs)
             {
-                string ext = System.IO.Path.GetExtension(file.FullPath).ToLowerInvariant();
-                string baseName = System.IO.Path.GetFileNameWithoutExtension(file.FullPath);
-                
-                // Handle .tar.gz / .tgz naming
-                if (ext == ".gz" && file.FullPath.ToLowerInvariant().EndsWith(".tar.gz"))
-                    baseName = System.IO.Path.GetFileNameWithoutExtension(baseName);
-
-                string extractDir = System.IO.Path.Combine(_currentPath, baseName);
-                int counter = 2;
-                while (Directory.Exists(extractDir))
-                    extractDir = System.IO.Path.Combine(_currentPath, $"{baseName} ({counter++})");
-
-                if (ext == ".zip")
+                try
                 {
-                    // Native .NET extraction for .zip
-                    ZipFile.ExtractToDirectory(file.FullPath, extractDir);
-                }
-                else
-                {
-                    // Use Windows built-in tar (available on Win10+) for .tar, .gz, .tgz
-                    // For .rar, .7z — try system-installed tools
-                    if (ext is ".tar" or ".gz" or ".tgz" or ".bz2" or ".xz")
+                    if (ext == ".zip")
+                    {
+                        ZipFile.ExtractToDirectory(filePath, extractDir);
+                    }
+                    else if (ext is ".tar" or ".gz" or ".tgz" or ".bz2" or ".xz")
                     {
                         Directory.CreateDirectory(extractDir);
                         var psi = new ProcessStartInfo
                         {
                             FileName = "tar",
-                            Arguments = $"xf \"{file.FullPath}\" -C \"{extractDir}\"",
+                            Arguments = $"xf \"{filePath}\" -C \"{extractDir}\"",
                             UseShellExecute = false,
                             CreateNoWindow = true,
                             RedirectStandardError = true
@@ -1472,26 +1566,22 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                     }
                     else if (ext is ".7z" or ".rar")
                     {
-                        // Try 7z.exe first, then fall back to WinRAR
-                        string? toolPath = Find7zOrWinRAR();
-                        if (toolPath == null)
+                        if (externalToolPath == null)
                         {
-                            MessageBox.Show(
-                                $"無法解壓 {ext} 檔案。\n請安裝 7-Zip 或 WinRAR。",
-                                "FocusFence", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            errors.Add($"「{fileName}」: 無法解壓 {ext} 檔案，請安裝 7-Zip 或 WinRAR。");
                             continue;
                         }
 
                         Directory.CreateDirectory(extractDir);
                         string args;
-                        if (toolPath.Contains("7z", StringComparison.OrdinalIgnoreCase))
-                            args = $"x \"{file.FullPath}\" -o\"{extractDir}\" -y";
+                        if (externalToolPath.Contains("7z", StringComparison.OrdinalIgnoreCase))
+                            args = $"x \"{filePath}\" -o\"{extractDir}\" -y";
                         else // WinRAR
-                            args = $"x -y \"{file.FullPath}\" \"{extractDir}\\\"";
+                            args = $"x -y \"{filePath}\" \"{extractDir}\\\"";
 
                         var psi = new ProcessStartInfo
                         {
-                            FileName = toolPath,
+                            FileName = externalToolPath,
                             Arguments = args,
                             UseShellExecute = false,
                             CreateNoWindow = true,
@@ -1506,15 +1596,21 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    errors.Add($"「{fileName}」: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"解壓縮「{file.FileName}」失敗:\n{ex.Message}", "FocusFence",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
+        });
 
         RefreshFiles();
+
+        if (errors.Count > 0)
+        {
+            FocusFenceDialog.ShowMessage(
+                "部分檔案解壓縮失敗：\n" + string.Join("\n", errors),
+                "FocusFence", true);
+        }
     }
 
     /// <summary>
@@ -1554,6 +1650,86 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     private void Context_Rename(object s, RoutedEventArgs e)
     {
         StartRename();
+    }
+
+    private void Context_BatchRename(object s, RoutedEventArgs e)
+    {
+        // Get target items: selected non-directory files, or all files if none selected
+        var selected = FileListBox.SelectedItems.Cast<FileItem>()
+            .Where(f => !f.IsDirectory).ToList();
+        
+        var targets = selected.Count > 0 
+            ? selected 
+            : _files.Where(f => !f.IsDirectory).ToList();
+
+        if (targets.Count == 0)
+        {
+            FocusFenceDialog.ShowMessage("沒有可以重新命名的檔案。");
+            return;
+        }
+
+        string defaultBase = System.IO.Path.GetFileNameWithoutExtension(
+            targets.FirstOrDefault()?.FullPath ?? "file");
+
+        var baseName = FocusFenceDialog.ShowInput(
+            $"將 {targets.Count} 個檔案批次重新命名。\n格式: 名稱_001, 名稱_002, ...\n\n請輸入基本名稱：",
+            "FocusFence — 批次重新命名",
+            defaultBase);
+
+        if (string.IsNullOrWhiteSpace(baseName)) return;
+
+        int renamed = 0;
+        int failed = 0;
+        var errors = new List<string>();
+
+        // Sort by current name for consistent ordering
+        var sorted = targets.OrderBy(f => f.FileName).ToList();
+        int pad = sorted.Count.ToString().Length;
+        if (pad < 3) pad = 3; // Minimum 3 digits
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            var file = sorted[i];
+            try
+            {
+                string ext = System.IO.Path.GetExtension(file.FullPath);
+                string newName = $"{baseName}_{(i + 1).ToString().PadLeft(pad, '0')}{ext}";
+                string newPath = System.IO.Path.Combine(_currentPath, newName);
+
+                // Skip if same name
+                if (newPath.Equals(file.FullPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    renamed++;
+                    continue;
+                }
+
+                // Handle collision with a temp name first
+                if (File.Exists(newPath))
+                {
+                    string tempPath = newPath + ".tmp_rename";
+                    File.Move(file.FullPath, tempPath);
+                    file.FullPath = tempPath;
+                }
+
+                File.Move(file.FullPath, newPath);
+                file.FullPath = newPath;
+                file.FileName = newName;
+                file.DisplayName = newName.Length > 16 ? newName[..13] + "..." : newName;
+                renamed++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                errors.Add($"{file.FileName}: {ex.Message}");
+            }
+        }
+
+        RefreshFiles();
+
+        if (failed > 0)
+            FocusFenceDialog.ShowMessage(
+                $"已重新命名 {renamed} 個，失敗 {failed} 個：\n" + string.Join("\n", errors.Take(5)),
+                "FocusFence", true);
     }
 
     private void FileList_KeyDown(object sender, KeyEventArgs e)
@@ -1654,7 +1830,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"重新命名失敗: {ex.Message}", "FocusFence");
+                FocusFenceDialog.ShowMessage($"重新命名失敗: {ex.Message}", "FocusFence", true);
                 file.FileName = System.IO.Path.GetFileName(file.FullPath); // revert text
             }
         }

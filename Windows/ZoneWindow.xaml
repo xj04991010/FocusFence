@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:FocusFence.Controls"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ShowInTaskbar="False" Topmost="False" ResizeMode="NoResize"
+        ShowInTaskbar="True" Topmost="False" ResizeMode="NoResize"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
 
     <Window.Resources>
@@ -16,9 +16,11 @@
             <MenuItem Header="新增資料夾" Click="Context_NewFolder"/>
             <MenuItem Header="新增文字檔 (.txt)" Click="Context_NewTextFile"/>
             <Separator/>
+            <MenuItem Header="📂 整理子資料夾影片到此處" Click="Context_ConsolidateVideos"/>
             <MenuItem Header="📦 解壓縮 (Extract)" Click="Context_Extract"/>
             <Separator/>
             <MenuItem Header="重新命名 (F2)" Click="Context_Rename"/>
+            <MenuItem Header="✏️ 批次重新命名" Click="Context_BatchRename"/>
             <MenuItem Header="刪除" Click="Context_Delete"/>
         </ContextMenu>
     </Window.Resources>

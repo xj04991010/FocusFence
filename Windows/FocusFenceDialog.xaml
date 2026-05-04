@@ -1,0 +1,124 @@
+<Window x:Class="FocusFence.Windows.FocusFenceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Width="380" SizeToContent="Height"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        KeyDown="Window_KeyDown">
+
+    <Border x:Name="MainBorder" CornerRadius="12" Margin="16"
+            BorderThickness="1"
+            ClipToBounds="True">
+        <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#4DFFFFFF" Offset="0"/>
+                <GradientStop Color="#1AFFFFFF" Offset="0.5"/>
+                <GradientStop Color="#26000000" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.BorderBrush>
+        <Border.Background>
+            <SolidColorBrush Color="#1E1E1E" Opacity="0.96"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>  <!-- Icon + Title -->
+                <RowDefinition Height="Auto"/>  <!-- Message -->
+                <RowDefinition Height="Auto"/>  <!-- Input (optional) -->
+                <RowDefinition Height="Auto"/>  <!-- Buttons -->
+            </Grid.RowDefinitions>
+
+            <!-- Icon + Title Row -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="24,20,24,0">
+                <TextBlock x:Name="IconText" Text="&#xE783;"
+                           FontFamily="{DynamicResource IconFont}"
+                           Foreground="{DynamicResource AccentTealBrush}"
+                           FontSize="20" VerticalAlignment="Center"
+                           Margin="0,0,12,0"/>
+                <TextBlock x:Name="TitleText" Text="FocusFence"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontSize="15" FontWeight="SemiBold"
+                           FontFamily="{DynamicResource PrimaryFont}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Message -->
+            <TextBlock x:Name="MessageText" Grid.Row="1"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="13"
+                       FontFamily="{DynamicResource PrimaryFont}"
+                       TextWrapping="Wrap" Margin="24,12,24,0"
+                       LineHeight="20"/>
+
+            <!-- Input Box (hidden by default) -->
+            <Border x:Name="InputArea" Grid.Row="2" Margin="24,12,24,0"
+                    Visibility="Collapsed"
+                    CornerRadius="6"
+                    Background="#14FFFFFF"
+                    Padding="2">
+                <TextBox x:Name="InputBox"
+                         Background="Transparent"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         CaretBrush="White"
+                         BorderThickness="0"
+                         FontSize="13"
+                         FontFamily="{DynamicResource PrimaryFont}"
+                         Padding="10,8"
+                         KeyDown="InputBox_KeyDown"/>
+            </Border>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="24,16,24,20">
+                <!-- Cancel / No button -->
+                <Border x:Name="CancelBtn" Visibility="Collapsed"
+                        Cursor="Hand" Padding="14,7" Margin="0,0,8,0"
+                        CornerRadius="6"
+                        Background="#22FFFFFF"
+                        MouseLeftButtonDown="CancelBtn_Click">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#33FFFFFF"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock x:Name="CancelBtnText" Text="取消"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13" FontWeight="Medium"
+                               FontFamily="{DynamicResource PrimaryFont}"/>
+                </Border>
+
+                <!-- OK / Yes / Confirm button -->
+                <Border x:Name="ConfirmBtn" Cursor="Hand" Padding="14,7"
+                        CornerRadius="6"
+                        MouseLeftButtonDown="ConfirmBtn_Click">
+                    <Border.Background>
+                        <SolidColorBrush Color="{DynamicResource AccentTeal}"/>
+                    </Border.Background>
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock x:Name="ConfirmBtnText" Text="確定"
+                               Foreground="Black"
+                               FontSize="13" FontWeight="SemiBold"
+                               FontFamily="{DynamicResource PrimaryFont}"/>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
