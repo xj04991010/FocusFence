@@ -59,7 +59,10 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     // Suppress ZoneChanged during SyncFromConfig to avoid feedback loops
     private bool _suppressZoneChanged;
 
-
+    // Clipboard (Cut / Copy / Paste)
+    private static List<string> _clipboardFiles = new();
+    private static bool _clipboardIsCut = false;
+    private static ZoneWindow? _clipboardSourceZone;
 
     // Color palette
     private static readonly string[] Palette =
@@ -658,6 +661,41 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 };
                 timer.Start();
             }
+        });
+    }
+
+    /// <summary>
+    /// Shows a temporary toast notification at the bottom of the zone.
+    /// </summary>
+    public void ShowToast(string message)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ToastNotification == null || ToastText == null) return;
+
+            ToastText.Text = message;
+            
+            // Reset state
+            ToastNotification.Opacity = 0;
+            var tt = new TranslateTransform { Y = 10 };
+            ToastNotification.RenderTransform = tt;
+            
+            // Fade in + slide up
+            var fadeIn = new DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(200) };
+            var slideUp = new DoubleAnimation { From = 10, To = 0, Duration = TimeSpan.FromMilliseconds(250), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+            
+            ToastNotification.BeginAnimation(OpacityProperty, fadeIn);
+            tt.BeginAnimation(TranslateTransform.YProperty, slideUp);
+
+            // Auto hide after 3 seconds
+            var hideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            hideTimer.Tick += (_, _) =>
+            {
+                hideTimer.Stop();
+                var fadeOut = new DoubleAnimation { From = 1, To = 0, Duration = TimeSpan.FromMilliseconds(300) };
+                ToastNotification.BeginAnimation(OpacityProperty, fadeOut);
+            };
+            hideTimer.Start();
         });
     }
     private void ZoneMemo_TextChanged(object sender, TextChangedEventArgs e)
@@ -1336,34 +1374,80 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
     private void Context_Delete(object s, RoutedEventArgs e)
     {
         var items = FileListBox.SelectedItems.Cast<FileItem>().ToList();
-        if (items.Count == 0) return;
-        if (!FocusFenceDialog.ShowConfirm($"確定要將 {items.Count} 個項目移至回收筒？", "FocusFence", destructive: true)) return;
-        foreach (var f in items)
+        if (FocusFence.Services.FileOperationService.DeleteItems(items))
         {
-            try
-            {
-                if (f.IsDirectory)
-                    FileSystem.DeleteDirectory(f.FullPath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-                else
-                    FileSystem.DeleteFile(f.FullPath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-            }
-            catch { }
+            RefreshFiles();
         }
-        RefreshFiles();
+    }
+
+    // ── Clipboard: Cut / Copy / Paste ────────────────────────────────
+
+    private void Context_Cut(object s, RoutedEventArgs e)
+    {
+        var items = FileListBox.SelectedItems.Cast<FileItem>().ToList();
+        if (items.Count == 0) return;
+
+        // Clear previous cut marks
+        ClearCutMarks();
+
+        _clipboardFiles = items.Select(f => f.FullPath).ToList();
+        _clipboardIsCut = true;
+        _clipboardSourceZone = this;
+
+        // Mark items visually
+        foreach (var f in items)
+            f.IsCut = true;
+    }
+
+    private void Context_Copy(object s, RoutedEventArgs e)
+    {
+        var items = FileListBox.SelectedItems.Cast<FileItem>().ToList();
+        if (items.Count == 0) return;
+
+        ClearCutMarks();
+
+        _clipboardFiles = items.Select(f => f.FullPath).ToList();
+        _clipboardIsCut = false;
+        _clipboardSourceZone = this;
+    }
+
+    private void Context_Paste(object s, RoutedEventArgs e)
+    {
+        if (_clipboardFiles.Count == 0 || string.IsNullOrEmpty(_currentPath)) return;
+
+        if (FocusFence.Services.FileOperationService.PasteItems(_clipboardFiles, _clipboardIsCut, _currentPath))
+        {
+            if (_clipboardIsCut)
+            {
+                // Clear clipboard after a cut-paste
+                _clipboardFiles.Clear();
+                ClearCutMarks();
+                // Refresh source zone too
+                _clipboardSourceZone?.RefreshFiles();
+            }
+
+            RefreshFiles();
+        }
+    }
+
+    private void ClearCutMarks()
+    {
+        // Clear IsCut on all items in the source zone
+        if (_clipboardSourceZone != null)
+        {
+            foreach (var f in _clipboardSourceZone._files)
+                f.IsCut = false;
+        }
     }
 
     private void Context_NewFolder(object s, RoutedEventArgs e)
     {
-        try
+        if (string.IsNullOrEmpty(_currentPath)) return;
+        string? newPath = FocusFence.Services.FileOperationService.CreateFolder(_currentPath);
+        
+        if (newPath != null)
         {
-            if (string.IsNullOrEmpty(_currentPath)) return;
-            string newPath = System.IO.Path.Combine(_currentPath, "新增資料夾");
-            int c = 2;
-            while (Directory.Exists(newPath))
-                newPath = System.IO.Path.Combine(_currentPath, $"新增資料夾 ({c++})");
-            Directory.CreateDirectory(newPath);
             RefreshFiles();
-
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var newFolderItem = _files.FirstOrDefault(f => f.FullPath == newPath);
@@ -1375,21 +1459,16 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 }
             }), DispatcherPriority.Loaded);
         }
-        catch (Exception ex) { FocusFenceDialog.ShowMessage(ex.Message, "FocusFence", true); }
     }
 
     private void Context_NewTextFile(object s, RoutedEventArgs e)
     {
-        try
-        {
-            if (string.IsNullOrEmpty(_currentPath)) return;
-            string newPath = System.IO.Path.Combine(_currentPath, "新增文字檔.txt");
-            int c = 2;
-            while (File.Exists(newPath))
-                newPath = System.IO.Path.Combine(_currentPath, $"新增文字檔 ({c++}).txt");
-            File.WriteAllText(newPath, "");
-            RefreshFiles();
+        if (string.IsNullOrEmpty(_currentPath)) return;
+        string? newPath = FocusFence.Services.FileOperationService.CreateTextFile(_currentPath);
 
+        if (newPath != null)
+        {
+            RefreshFiles();
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var newFileItem = _files.FirstOrDefault(f => f.FullPath == newPath);
@@ -1401,7 +1480,6 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 }
             }), DispatcherPriority.Loaded);
         }
-        catch (Exception ex) { FocusFenceDialog.ShowMessage(ex.Message, "FocusFence", true); }
     }
 
     // ── Video Consolidation ─────────────────────────────────────────────
@@ -1444,6 +1522,9 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
         int failed = 0;
         var errors = new List<string>();
 
+        // Stop watcher during consolidation to prevent rename-stuck issues
+        StopWatcher();
+
         await Task.Run(() =>
         {
             foreach (var srcPath in videoFiles)
@@ -1471,7 +1552,12 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             }
         });
 
+        // Force-clear any stuck IsEditing state before refreshing
+        foreach (var f in _files)
+            f.IsEditing = false;
+
         RefreshFiles();
+        StartWatcher();
 
         string resultMsg = $"已移動 {moved} 個影片到此資料夾。";
         if (failed > 0)
@@ -1533,11 +1619,32 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
 
         var errors = new List<string>();
 
-        // Run all extraction on a background thread
+        // Show progress overlay
+        ExtractionOverlay.Visibility = Visibility.Visible;
+        ExtractionStatusText.Text = "解壓縮中...";
+        ExtractionDetailText.Text = $"共 {jobs.Count} 個檔案";
+        ExtractionProgressBar.Width = 0;
+
+        // Stop watcher during extraction to prevent rename-stuck issues
+        StopWatcher();
+
+        int totalJobs = jobs.Count;
+        int completedJobs = 0;
+
+        // Run all extraction on a background thread with progress reporting
         await Task.Run(() =>
         {
             foreach (var (filePath, fileName, ext, extractDir) in jobs)
             {
+                // Update progress on UI thread
+                Dispatcher.Invoke(() =>
+                {
+                    ExtractionStatusText.Text = $"解壓縮中... ({completedJobs + 1}/{totalJobs})";
+                    ExtractionDetailText.Text = fileName;
+                    double progressFraction = (double)completedJobs / totalJobs;
+                    ExtractionProgressBar.Width = progressFraction * 200;
+                });
+
                 try
                 {
                     if (ext == ".zip")
@@ -1569,6 +1676,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                         if (externalToolPath == null)
                         {
                             errors.Add($"「{fileName}」: 無法解壓 {ext} 檔案，請安裝 7-Zip 或 WinRAR。");
+                            completedJobs++;
                             continue;
                         }
 
@@ -1600,10 +1708,28 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
                 {
                     errors.Add($"「{fileName}」: {ex.Message}");
                 }
+
+                completedJobs++;
             }
         });
 
+        // Show completion on progress bar
+        ExtractionProgressBar.Width = 200;
+        ExtractionStatusText.Text = "✅ 解壓縮完成";
+        ExtractionDetailText.Text = errors.Count > 0 ? $"失敗 {errors.Count} 個" : $"成功 {completedJobs} 個";
+
+        // Brief delay so user can see completion
+        await Task.Delay(800);
+
+        // Hide progress overlay
+        ExtractionOverlay.Visibility = Visibility.Collapsed;
+
+        // Force-clear any stuck IsEditing state before refreshing
+        foreach (var f in _files)
+            f.IsEditing = false;
+
         RefreshFiles();
+        StartWatcher();
 
         if (errors.Count > 0)
         {
@@ -1654,7 +1780,6 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
 
     private void Context_BatchRename(object s, RoutedEventArgs e)
     {
-        // Get target items: selected non-directory files, or all files if none selected
         var selected = FileListBox.SelectedItems.Cast<FileItem>()
             .Where(f => !f.IsDirectory).ToList();
         
@@ -1678,58 +1803,10 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
 
         if (string.IsNullOrWhiteSpace(baseName)) return;
 
-        int renamed = 0;
-        int failed = 0;
-        var errors = new List<string>();
-
-        // Sort by current name for consistent ordering
-        var sorted = targets.OrderBy(f => f.FileName).ToList();
-        int pad = sorted.Count.ToString().Length;
-        if (pad < 3) pad = 3; // Minimum 3 digits
-
-        for (int i = 0; i < sorted.Count; i++)
+        if (FocusFence.Services.FileOperationService.BatchRenameItems(targets, baseName, _currentPath))
         {
-            var file = sorted[i];
-            try
-            {
-                string ext = System.IO.Path.GetExtension(file.FullPath);
-                string newName = $"{baseName}_{(i + 1).ToString().PadLeft(pad, '0')}{ext}";
-                string newPath = System.IO.Path.Combine(_currentPath, newName);
-
-                // Skip if same name
-                if (newPath.Equals(file.FullPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    renamed++;
-                    continue;
-                }
-
-                // Handle collision with a temp name first
-                if (File.Exists(newPath))
-                {
-                    string tempPath = newPath + ".tmp_rename";
-                    File.Move(file.FullPath, tempPath);
-                    file.FullPath = tempPath;
-                }
-
-                File.Move(file.FullPath, newPath);
-                file.FullPath = newPath;
-                file.FileName = newName;
-                file.DisplayName = newName.Length > 16 ? newName[..13] + "..." : newName;
-                renamed++;
-            }
-            catch (Exception ex)
-            {
-                failed++;
-                errors.Add($"{file.FileName}: {ex.Message}");
-            }
+            RefreshFiles();
         }
-
-        RefreshFiles();
-
-        if (failed > 0)
-            FocusFenceDialog.ShowMessage(
-                $"已重新命名 {renamed} 個，失敗 {failed} 個：\n" + string.Join("\n", errors.Take(5)),
-                "FocusFence", true);
     }
 
     private void FileList_KeyDown(object sender, KeyEventArgs e)
@@ -1755,6 +1832,21 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
             {
                 FocusFence.Services.UndoService.Undo();
             }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.X && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            Context_Cut(null!, null!);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            Context_Copy(null!, null!);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            Context_Paste(null!, null!);
             e.Handled = true;
         }
     }
@@ -1816,29 +1908,7 @@ public partial class ZoneWindow : Window, INotifyPropertyChanged
         if (tb == null || tb.DataContext is not FileItem file || !file.IsEditing) return;
 
         string newName = tb.Text.Trim();
-        string newPath = System.IO.Path.Combine(_currentPath, newName);
-
-        if (!string.IsNullOrEmpty(newName) && newPath != file.FullPath)
-        {
-            try
-            {
-                if (file.IsDirectory) Directory.Move(file.FullPath, newPath);
-                else File.Move(file.FullPath, newPath);
-                
-                file.FullPath = newPath;
-                file.DisplayName = newName.Length > 16 ? newName[..13] + "..." : newName;
-            }
-            catch (Exception ex)
-            {
-                FocusFenceDialog.ShowMessage($"重新命名失敗: {ex.Message}", "FocusFence", true);
-                file.FileName = System.IO.Path.GetFileName(file.FullPath); // revert text
-            }
-        }
-        else
-        {
-            file.FileName = System.IO.Path.GetFileName(file.FullPath); // revert if empty or same
-        }
-
+        FocusFence.Services.FileOperationService.RenameItem(file, newName, _currentPath);
         file.IsEditing = false;
     }
 

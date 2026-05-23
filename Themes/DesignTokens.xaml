@@ -30,11 +30,16 @@
     <Color x:Key="AccentTeal">#FF5EEAD4</Color>                 <!-- Brighter, modern teal -->
     <Color x:Key="AccentTealGlow">#665EEAD4</Color>             <!-- rgba(94, 234, 212, 0.4) -->
     <Color x:Key="AccentTealDeep">#FF0D9488</Color>
+    <Color x:Key="AccentTealSolid">#FF14B8A6</Color>
     <Color x:Key="AccentTealBorder">#995EEAD4</Color>
 
     <!-- Destructive -->
     <Color x:Key="Destructive">#E6DC3545</Color>                <!-- rgba(220,53,69,0.9) -->
     <Color x:Key="DestructiveBg">#0FDC3545</Color>              <!-- rgba(220,53,69,0.06) -->
+
+    <!-- Text Muted (disabled state) -->
+    <Color x:Key="TextMuted">#44FFFFFF</Color>                    <!-- rgba(255,255,255,0.27) -->
+
 
     <!-- Warning (Pomodoro last 2 min) -->
     <Color x:Key="WarningOrange">#FFF97316</Color>
@@ -60,6 +65,7 @@
     <SolidColorBrush x:Key="SurfaceHoverBrush"    Color="{StaticResource SurfaceHover}"/>
     <SolidColorBrush x:Key="DividerBrush"         Color="{StaticResource Divider}"/>
     <SolidColorBrush x:Key="TransparentBrush"     Color="{StaticResource Transparent}"/>
+    <SolidColorBrush x:Key="TextMutedBrush"       Color="{StaticResource TextMuted}"/>
     <SolidColorBrush x:Key="WarningOrangeBrush"   Color="{StaticResource WarningOrange}"/>
 
     <!-- ── Premium Glass Borders (Light Stroke) ───────────── -->
@@ -478,6 +484,97 @@
                             <Setter TargetName="Bd" Property="RenderTransform">
                                 <Setter.Value><ScaleTransform ScaleX="0.98" ScaleY="0.98"/></Setter.Value>
                             </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── Dark-Themed ComboBox ──────────────────────────────── -->
+    <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="Background" Value="{StaticResource Surface2Brush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource SurfaceHoverBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontFamily" Value="{StaticResource PrimaryFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <ContentPresenter IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left"
+                                                  Margin="0,0,20,0"/>
+                                <TextBlock Text="▾" Foreground="{StaticResource TextTertiaryBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           FontSize="10"/>
+                            </Grid>
+                        </Border>
+                        <ToggleButton x:Name="ToggleBtn" Focusable="False"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      ClickMode="Press" Background="Transparent" BorderThickness="0"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent"/>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                               AllowsTransparency="True" StaysOpen="False">
+                            <Border Background="#E61A1A1A" BorderBrush="#33FFFFFF"
+                                    BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,4,0,0"
+                                    MaxHeight="200">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="15" ShadowDepth="4" Opacity="0.5" Color="Black"/>
+                                </Border.Effect>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel IsItemsHost="True"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentTealBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="DarkComboBoxItemStyle" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontFamily" Value="{StaticResource PrimaryFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#33C69C6D"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

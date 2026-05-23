@@ -13,6 +13,10 @@
             <MenuItem Header="複製路徑" Click="Context_CopyPath"/>
             <MenuItem Header="在檔案總管開啟" Click="Context_ShowInExplorer"/>
             <Separator/>
+            <MenuItem Header="✂️ 剪下 (Ctrl+X)" Click="Context_Cut"/>
+            <MenuItem Header="📋 複製 (Ctrl+C)" Click="Context_Copy"/>
+            <MenuItem Header="📌 貼上 (Ctrl+V)" Click="Context_Paste"/>
+            <Separator/>
             <MenuItem Header="新增資料夾" Click="Context_NewFolder"/>
             <MenuItem Header="新增文字檔 (.txt)" Click="Context_NewTextFile"/>
             <Separator/>
@@ -376,8 +380,18 @@
                                         <Border Width="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ItemBoxWidth}"
                                                 Height="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ItemBoxHeight}"
                                                 Margin="4"
-                                                Style="{DynamicResource FileItemHoverStyle}"
                                                 ToolTip="{Binding FileName}">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource FileItemHoverStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsCut}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.45"/>
+                                                            <Setter Property="BorderBrush" Value="#FFFFA726"/>
+                                                            <Setter Property="BorderThickness" Value="2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                                 <!-- Thumbnail or Icon -->
                                                 <Grid HorizontalAlignment="Center">
@@ -476,35 +490,60 @@
                                         Visibility="Collapsed" />
                             </Canvas>
 
-                            <!-- Sticky Note (Windows Sticky Notes style) -->
+                            <!-- Extraction Progress Overlay -->
+                            <Border x:Name="ExtractionOverlay" Grid.Row="0" Panel.ZIndex="20"
+                                    Background="#CC1A1A1A" CornerRadius="8"
+                                    Visibility="Collapsed">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="200">
+                                    <TextBlock x:Name="ExtractionStatusText" Text="解壓縮中..."
+                                               Foreground="#DDFFFFFF" FontSize="13"
+                                               FontFamily="{DynamicResource PrimaryFont}"
+                                               HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                                    <Border Height="6" CornerRadius="3" Background="#33FFFFFF">
+                                        <Border x:Name="ExtractionProgressBar"
+                                                Height="6" CornerRadius="3"
+                                                HorizontalAlignment="Left" Width="0">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                    <GradientStop Color="#FF5EEAD4" Offset="0"/>
+                                                    <GradientStop Color="#FF0D9488" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Border>
+                                    <TextBlock x:Name="ExtractionDetailText" Text=""
+                                               Foreground="#88FFFFFF" FontSize="11"
+                                               FontFamily="{DynamicResource PrimaryFont}"
+                                               HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Sticky Note (Dark Theme) -->
                             <Border x:Name="StickyNoteArea" Grid.Row="1" Margin="6,0,6,6"
                                     MinHeight="36" MaxHeight="120"
                                     CornerRadius="6" Panel.ZIndex="1"
-                                    Background="#FFF2AB">
-                                <Border.Effect>
-                                    <DropShadowEffect ShadowDepth="2" BlurRadius="6" Opacity="0.2" Color="Black"/>
-                                </Border.Effect>
+                                    Background="#1A2A2E" BorderBrush="#225EEAD4" BorderThickness="1">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
                                     <DockPanel Grid.Row="0" Margin="8,6,8,0">
-                                        <Border Width="8" Height="8" CornerRadius="4" Background="#E5C743" VerticalAlignment="Center" Margin="0,0,6,0" DockPanel.Dock="Left"/>
+                                        <Border Width="8" Height="8" CornerRadius="4" Background="#5EEAD4" VerticalAlignment="Center" Margin="0,0,6,0" DockPanel.Dock="Left"/>
                                         <TextBlock Text="便利貼"
-                                                   Foreground="#947A11" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="#995EEAD4" FontSize="11" FontWeight="SemiBold"
                                                    FontFamily="{DynamicResource PrimaryFont}"
                                                    VerticalAlignment="Center" DockPanel.Dock="Left"/>
                                     </DockPanel>
                                     <TextBox x:Name="ZoneMemo" Grid.Row="1"
                                              Background="Transparent"
-                                             Foreground="#4A3B05"
+                                             Foreground="#B3FFFFFF"
                                              BorderThickness="0"
                                              TextWrapping="Wrap" AcceptsReturn="True"
                                              Padding="8,4,8,8"
                                              FontSize="13"
                                              FontFamily="{DynamicResource PrimaryFont}"
-                                             CaretBrush="#4A3B05"
+                                             CaretBrush="#5EEAD4"
                                              VerticalScrollBarVisibility="Auto"
                                              ToolTip="專案便利貼 (自動儲存)"
                                              TextChanged="ZoneMemo_TextChanged"/>
@@ -530,6 +569,25 @@
                                            TextAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTip="點此調整框框設定"/>
+                            </Border>
+
+                            <!-- ═══ Toast Notification ═══ -->
+                            <Border x:Name="ToastNotification" Grid.Row="2"
+                                    Margin="8,0,8,4" Padding="10,6"
+                                    CornerRadius="8" Opacity="0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Bottom"
+                                    IsHitTestVisible="False"
+                                    Panel.ZIndex="50">
+                                <Border.Background>
+                                    <SolidColorBrush Color="#0D9488" Opacity="0.9"/>
+                                </Border.Background>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📥" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ToastText" Text="" Foreground="White" FontSize="11.5"
+                                               FontFamily="{DynamicResource PrimaryFont}"
+                                               FontWeight="Medium" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Border>
 
                             <!-- Resize Grip -->

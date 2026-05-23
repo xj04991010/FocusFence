@@ -35,6 +35,13 @@ public class FileItem : INotifyPropertyChanged
         set { _isEditing = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEditing))); }
     }
 
+    private bool _isCut;
+    public bool IsCut
+    {
+        get => _isCut;
+        set { _isCut = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCut))); }
+    }
+
     // ── Thumbnail support ────────────────────────────────────────────
 
     private System.Windows.Media.Imaging.BitmapSource? _thumbnail;
@@ -109,7 +116,7 @@ public class FileItem : INotifyPropertyChanged
         {
             FullPath    = path,
             FileName    = name,
-            DisplayName = name.Length > 16 ? name[..13] + "..." : name,
+            DisplayName = FocusFence.Helpers.FileNameValidator.SmartTruncate(name),
             IconEmoji   = GetEmoji(ext, isDir),
             IsDirectory = isDir
         };

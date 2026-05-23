@@ -107,16 +107,15 @@ public partial class DashboardWindow : Window
         this.Activate();
         RefreshData();
 
-        if (AutoRouteDownloadsCheck != null)
+        // Initialize download catcher toggle
+        UpdateAutoRouteToggleVisual(_config.AutoRouteDownloadsToActiveZone);
+        DownloadTargetPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
+        CaptureStatsPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
+        
+        DownloadTargetCombo.ItemsSource = _config.Zones;
+        if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
         {
-            AutoRouteDownloadsCheck.IsChecked = _config.AutoRouteDownloadsToActiveZone;
-            DownloadTargetPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
-            
-            DownloadTargetCombo.ItemsSource = _config.Zones;
-            if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
-            {
-                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
-            }
+            DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
         }
     }
 
@@ -455,9 +454,13 @@ public partial class DashboardWindow : Window
         TabNotes.Background = Brushes.Transparent;
         TabNotesText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAFFFFFF"));
 
+        TabSettings.Background = Brushes.Transparent;
+        TabSettingsText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAFFFFFF"));
+
         ZonesContainer.Visibility = Visibility.Collapsed;
         PomodoroContainer.Visibility = Visibility.Collapsed;
         NotesContainer.Visibility = Visibility.Collapsed;
+        SettingsContainer.Visibility = Visibility.Collapsed;
     }
 
     private void TabZones_Click(object sender, MouseButtonEventArgs e)
@@ -483,6 +486,46 @@ public partial class DashboardWindow : Window
         TabNotes.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#33C69C6D"));
         TabNotesText.Foreground = Brushes.White;
         NotesContainer.Visibility = Visibility.Visible;
+        AnimateTabContent(NotesContainer);
+    }
+
+    private void TabSettings_Click(object sender, MouseButtonEventArgs e)
+    {
+        ResetTabs();
+        TabSettings.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#33C69C6D"));
+        TabSettingsText.Foreground = Brushes.White;
+        SettingsContainer.Visibility = Visibility.Visible;
+        AnimateTabContent(SettingsContainer);
+
+        // Refresh download catcher stats
+        UpdateAutoRouteToggleVisual(_config.AutoRouteDownloadsToActiveZone);
+        DownloadTargetPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
+        CaptureStatsPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Smooth fade + slide animation when switching tabs.</summary>
+    private static void AnimateTabContent(UIElement element)
+    {
+        var fadeIn = new System.Windows.Media.Animation.DoubleAnimation
+        {
+            From = 0, To = 1,
+            Duration = TimeSpan.FromMilliseconds(200),
+            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+        };
+        element.BeginAnimation(OpacityProperty, fadeIn);
+
+        if (element is FrameworkElement fe)
+        {
+            var slideUp = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                From = 12, To = 0,
+                Duration = TimeSpan.FromMilliseconds(250),
+                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+            };
+            var tt = new TranslateTransform();
+            fe.RenderTransform = tt;
+            tt.BeginAnimation(TranslateTransform.YProperty, slideUp);
+        }
     }
 
     public void ShowPomodoroTab(string? zoneTitle = null)
@@ -584,22 +627,49 @@ public partial class DashboardWindow : Window
         ConfigurationChanged?.Invoke();
     }
 
-    private void AutoRouteDownloads_Checked(object sender, RoutedEventArgs e)
-    {
-        if (AutoRouteDownloadsCheck != null && DownloadTargetPanel != null)
-        {
-            bool isChecked = AutoRouteDownloadsCheck.IsChecked ?? false;
-            _config.AutoRouteDownloadsToActiveZone = isChecked;
-            DownloadTargetPanel.Visibility = isChecked ? Visibility.Visible : Visibility.Collapsed;
-            
-            // Auto-select first zone if none selected
-            if (isChecked && string.IsNullOrEmpty(_config.DownloadTargetZoneId) && _config.Zones.Count > 0)
-            {
-                _config.DownloadTargetZoneId = _config.Zones[0].Id;
-                DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
-            }
+    // ── Auto Route Toggle (Custom Toggle Switch) ──────────────────────
 
-            ConfigurationChanged?.Invoke();
+    private void AutoRouteToggle_Click(object sender, MouseButtonEventArgs e)
+    {
+        bool newValue = !_config.AutoRouteDownloadsToActiveZone;
+        _config.AutoRouteDownloadsToActiveZone = newValue;
+        
+        UpdateAutoRouteToggleVisual(newValue);
+        DownloadTargetPanel.Visibility = newValue ? Visibility.Visible : Visibility.Collapsed;
+        CaptureStatsPanel.Visibility = newValue ? Visibility.Visible : Visibility.Collapsed;
+
+        // Auto-select first zone if none selected
+        if (newValue && string.IsNullOrEmpty(_config.DownloadTargetZoneId) && _config.Zones.Count > 0)
+        {
+            _config.DownloadTargetZoneId = _config.Zones[0].Id;
+            DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
+        }
+
+        ConfigurationChanged?.Invoke();
+        e.Handled = true;
+    }
+
+    private void UpdateAutoRouteToggleVisual(bool isOn)
+    {
+        if (AutoRouteToggle == null) return;
+        AutoRouteToggle.Background = isOn
+            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5EEAD4"))
+            : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#44FFFFFF"));
+        AutoRouteToggleKnob.HorizontalAlignment = isOn ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+        AutoRouteToggleKnob.Margin = isOn ? new Thickness(0, 0, 3, 0) : new Thickness(3, 0, 0, 0);
+    }
+
+    /// <summary>Updates the capture stats display. Called from App.xaml.cs.</summary>
+    public void UpdateCaptureStats(int totalCaught, DateTime? lastCaughtAt)
+    {
+        if (CaptureCountText != null)
+            CaptureCountText.Text = totalCaught.ToString();
+        if (LastCaptureText != null && lastCaughtAt.HasValue)
+        {
+            var dt = lastCaughtAt.Value;
+            var today = DateTime.Now.Date;
+            string timeStr = dt.Date == today ? $"最近：{dt:HH:mm}" : $"最近：{dt:MM/dd HH:mm}";
+            LastCaptureText.Text = timeStr;
         }
     }
 

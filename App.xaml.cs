@@ -143,6 +143,7 @@ public partial class App : Application
         _dormancyService.OnDormancyChanged += OnDormancyChanged;
 
         _downloadCatcherService = new DownloadCatcherService(_config);
+        _downloadCatcherService.OnFileCaught += OnFileCaught;
         _downloadCatcherService.Start();
 
         _zoneManager = new ZoneManagerService(_config);
@@ -349,6 +350,25 @@ public partial class App : Application
     }
 
 
+
+    // ── Download Catcher Event Handler ──────────────────────────────
+    
+    private void OnFileCaught(string fileName, string targetZoneTitle)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_dashboard != null && _downloadCatcherService != null)
+            {
+                _dashboard.UpdateCaptureStats(_downloadCatcherService.TotalCaughtCount, _downloadCatcherService.LastCaughtAt);
+            }
+
+            var targetZone = _zoneManager.Zones.FirstOrDefault(z => z.Config.Title == targetZoneTitle);
+            if (targetZone != null)
+            {
+                targetZone.ShowToast($"已捕獲 {fileName}");
+            }
+        });
+    }
 
     // ── Desktop Double-Click Hide ────────────────────────────────
 
