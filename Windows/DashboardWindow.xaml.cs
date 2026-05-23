@@ -112,7 +112,7 @@ public partial class DashboardWindow : Window
         DownloadTargetPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
         CaptureStatsPanel.Visibility = _config.AutoRouteDownloadsToActiveZone ? Visibility.Visible : Visibility.Collapsed;
         
-        DownloadTargetCombo.ItemsSource = _config.Zones;
+        DownloadTargetCombo.ItemsSource = _zoneItems;
         if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
         {
             DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
@@ -138,8 +138,10 @@ public partial class DashboardWindow : Window
 
             if (DownloadTargetCombo != null)
             {
-                DownloadTargetCombo.ItemsSource = null;
-                DownloadTargetCombo.ItemsSource = _config.Zones;
+                if (DownloadTargetCombo.ItemsSource != _zoneItems)
+                {
+                    DownloadTargetCombo.ItemsSource = _zoneItems;
+                }
                 if (!string.IsNullOrEmpty(_config.DownloadTargetZoneId))
                 {
                     DownloadTargetCombo.SelectedValue = _config.DownloadTargetZoneId;
@@ -716,6 +718,8 @@ public class DashboardZoneItem : INotifyPropertyChanged
         }
     }
     
+    public string Id => Config.Id;
+
     public string Title 
     { 
         get => Config.Title; 
